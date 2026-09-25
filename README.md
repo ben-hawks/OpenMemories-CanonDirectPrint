@@ -1,11 +1,11 @@
-# CanonPrint for Sony α7
+# CanonDirectPrint for Sony α7
 
 Print photos from a **Sony α7 (ILCE-7)** straight to a **Canon Ivy 2 Mini Photo
 Printer** (Zink, 2×3") or a **Canon SELPHY** Wi-Fi photo printer (CP900 and
 later, 4×6" postcard), using an [OpenMemories](https://github.com/ma1co/OpenMemories-Framework)
 PlayMemories Camera App.
 
-*CanonPrint is an unofficial community project. It is not affiliated with or
+*CanonDirectPrint is an unofficial community project. It is not affiliated with or
 endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 
 ```
@@ -24,8 +24,8 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 
 | Directory | What |
 |---|---|
-| [`app/`](app) | **CanonPrint**, the camera app (Android 2.3 / API 10) |
-| [`bridge-android/`](bridge-android) | **CanonPrint Bridge**, companion app for an Android phone (Android 6+) |
+| [`app/`](app) | **CanonDirectPrint**, the camera app (Android 2.3 / API 10) |
+| [`bridge-android/`](bridge-android) | **CanonDirectPrint Bridge**, companion app for an Android phone (Android 6+) |
 | [`bridge/`](bridge/README.md) | Bridge for Linux / Raspberry Pi (Python, stdlib only) + Ivy 2 and SELPHY simulators |
 | [`esp32/`](esp32/README.md) | Experimental ESP32 bridge sketch |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How it works, protocol notes, design decisions |
@@ -34,27 +34,27 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 > (unit, lint and end-to-end tests; a GitHub Actions workflow is in
 > `docs/ci-workflow.yml`, copy it to `.github/workflows/` to enable it). It has **not yet been tested on a
 > real camera or printer**. Please open an issue with your results and the log
-> file `CANONPRT/LOG.TXT` from the memory card.
+> file `CDPRINT/LOG.TXT` from the memory card.
 
 ## Quick start (with an Android phone as the bridge)
 
 1. **Build** (or download the APKs from the CI artifacts once CI is enabled):
    ```sh
    ./gradlew assembleDebug
-   # app/build/outputs/apk/debug/CanonPrint-debug-*.apk             (camera)
-   # bridge-android/build/outputs/apk/debug/CanonPrintBridge-debug-*.apk (phone)
+   # app/build/outputs/apk/debug/CanonDirectPrint-debug-*.apk             (camera)
+   # bridge-android/build/outputs/apk/debug/CanonDirectPrintBridge-debug-*.apk (phone)
    ```
    Building needs JDK 17+ and the Android SDK with the `platforms;android-10`
    package (`sdkmanager "platforms;android-10"`).
 2. **Install on the camera** with [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)
    (camera connected by USB in *MTP* or *Mass Storage* mode):
    ```sh
-   pmca-console install -f CanonPrint-debug-0.1.0.apk
+   pmca-console install -f CanonDirectPrint-debug-0.1.0.apk
    ```
-3. **Phone**: install *CanonPrint Bridge*, pair the Ivy 2 in the phone's Bluetooth
+3. **Phone**: install *CanonDirectPrint Bridge*, pair the Ivy 2 in the phone's Bluetooth
    settings (it appears as *Canon (xx:xx) Mini Printer*), turn on the phone's
    **Wi-Fi hotspot**, pick the printer in the app and tap **Start bridge**.
-4. **Camera**: open *CanonPrint* from the application list →
+4. **Camera**: open *CanonDirectPrint* from the application list →
    *Wi-Fi settings* → join the phone's hotspot (once).
 5. Pick a photo, choose the layout, press **ENTER** (or the shutter). The camera
    finds the bridge automatically.
@@ -63,11 +63,11 @@ With a Raspberry Pi instead, see [`bridge/README.md`](bridge/README.md).
 
 ## Quick start (Canon SELPHY)
 
-1. Install *CanonPrint* on the camera as above.
+1. Install *CanonDirectPrint* on the camera as above.
 2. Put the SELPHY on Wi-Fi, either way:
    * **Direct**: on the printer choose *Wi-Fi settings → Direct Connection*
      (called *Connection method → Direct* on some models). It shows a network name and
-     password. On the camera, open *CanonPrint → Wi-Fi settings* and join that network.
+     password. On the camera, open *CanonDirectPrint → Wi-Fi settings* and join that network.
    * **Shared network**: connect the printer and the camera to the same Wi-Fi
      (for example your phone's hotspot).
 3. Open *Printer status & settings* and press ▲/▼ until it shows **Canon SELPHY**.
@@ -100,7 +100,7 @@ SELPHY refuses without a paper or ink cassette. The camera shows which.
 
 ### Optional configuration
 
-Create `CANONPRT/CONFIG.TXT` on the memory card:
+Create `CDPRINT/CONFIG.TXT` on the memory card:
 
 ```
 # Printer used until one is chosen on the camera: ivy2 or selphy
@@ -119,7 +119,7 @@ chunk_delay_ms=20
 ## Testing without hardware
 
 ```sh
-python3 bridge/canonprint_bridge.py --simulate     # fake Ivy 2 behind a bridge, saves images to received/
+python3 bridge/canondirectprint_bridge.py --simulate     # fake Ivy 2 behind a bridge, saves images to received/
 python3 bridge/fake_selphy.py                # fake SELPHY on UDP 8609, saves images to received/
 ./gradlew :app:testDebugUnitTest             # includes Java → Python end-to-end tests for both printers
 cd bridge && python3 -m unittest -v test_bridge

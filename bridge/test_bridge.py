@@ -7,7 +7,7 @@ import threading
 import unittest
 
 import fake_ivy2
-import canonprint_bridge
+import canondirectprint_bridge
 
 
 def command(cmd, start_session=False, payload=b""):
@@ -33,12 +33,12 @@ def recv_message(sock):
 class BridgeTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.args = canonprint_bridge.parse_args(
+        self.args = canondirectprint_bridge.parse_args(
             ["--simulate", "--host", "127.0.0.1", "--port", "0", "--discovery-port", "0",
              "--name", "test bridge", "--save-dir", self.tmp.name])
         self.stop = threading.Event()
         ready = threading.Event()
-        self.thread = threading.Thread(target=canonprint_bridge.serve, args=(self.args, ready, self.stop), daemon=True)
+        self.thread = threading.Thread(target=canondirectprint_bridge.serve, args=(self.args, ready, self.stop), daemon=True)
         self.thread.start()
         self.assertTrue(ready.wait(5))
 
@@ -88,23 +88,23 @@ class DiscoveryTest(unittest.TestCase):
         port = probe.getsockname()[1]
         probe.close()
 
-        args = canonprint_bridge.parse_args(["--simulate", "--host", "127.0.0.1", "--port", "9123",
+        args = canondirectprint_bridge.parse_args(["--simulate", "--host", "127.0.0.1", "--port", "9123",
                                        "--discovery-port", str(port), "--name", "my bridge"])
         stop = threading.Event()
-        t = threading.Thread(target=canonprint_bridge.discovery_responder, args=(args, stop), daemon=True)
+        t = threading.Thread(target=canondirectprint_bridge.discovery_responder, args=(args, stop), daemon=True)
         t.start()
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             client.settimeout(1)
             with client:
                 for _ in range(5):
-                    client.sendto(canonprint_bridge.DISCOVERY_REQUEST, ("127.0.0.1", port))
+                    client.sendto(canondirectprint_bridge.DISCOVERY_REQUEST, ("127.0.0.1", port))
                     try:
                         data, _ = client.recvfrom(512)
                         break
                     except socket.timeout:
                         continue
-            self.assertEqual(data, b"CANONPRINT_BRIDGE port=9123 name=my bridge")
+            self.assertEqual(data, b"CANONDIRECTPRINT_BRIDGE port=9123 name=my bridge")
         finally:
             stop.set()
             t.join(2)

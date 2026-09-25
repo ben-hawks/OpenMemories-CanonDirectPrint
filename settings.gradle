@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'OpenMemories-CanonPrint'
+rootProject.name = 'OpenMemories-CanonDirectPrint'
 include ':app', ':bridge-android'

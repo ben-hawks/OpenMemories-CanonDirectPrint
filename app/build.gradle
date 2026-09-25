@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace 'com.github.benhawks.canonprint'
+    namespace 'com.github.benhawks.canondirectprint'
     // Sony PlayMemories cameras run Android 2.3.7 (API 10). Compiling against
     // the API 10 platform guarantees we never touch a newer API by accident.
     compileSdk 10
 
     defaultConfig {
-        applicationId 'com.github.benhawks.canonprint'
+        applicationId 'com.github.benhawks.canondirectprint'
         minSdk 10
         //noinspection ExpiredTargetSdkVersion
         targetSdk 10
@@ -34,7 +34,7 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "CanonPrint-${variant.name}-${variant.versionName}.apk"
+            outputFileName = "CanonDirectPrint-${variant.name}-${variant.versionName}.apk"
         }
     }
 }

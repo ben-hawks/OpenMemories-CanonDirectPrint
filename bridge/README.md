@@ -1,6 +1,6 @@
 # Linux / Raspberry Pi bridge
 
-`canonprint_bridge.py` relays TCP connections from the camera to the printer's
+`canondirectprint_bridge.py` relays TCP connections from the camera to the printer's
 Bluetooth RFCOMM channel. Python 3.7+ standard library only, Linux only (it uses
 the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
 
@@ -27,7 +27,7 @@ the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
    Wi-Fi, or let the Pi host a hotspot (Raspberry Pi OS Bookworm):
 
    ```sh
-   sudo nmcli device wifi hotspot ssid CANONPRINT-BRIDGE password canonprint
+   sudo nmcli device wifi hotspot ssid CANONDIRECTPRINT-BRIDGE password canondirectprint
    ```
 
    With a hotspot the Pi is the network's gateway, which the camera also tries
@@ -36,10 +36,10 @@ the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
 3. **Run the bridge:**
 
    ```sh
-   python3 canonprint_bridge.py --printer 04:7F:0E:XX:XX:XX
+   python3 canondirectprint_bridge.py --printer 04:7F:0E:XX:XX:XX
    ```
 
-   To start it at boot, edit and install `canonprint-bridge.service` (instructions inside).
+   To start it at boot, edit and install `canondirectprint-bridge.service` (instructions inside).
 
 ## Testing without a printer
 
@@ -49,7 +49,7 @@ that speaks the same protocol and saves every image it receives to
 rotated by 180 degrees).
 
 ```sh
-python3 canonprint_bridge.py --simulate
+python3 canondirectprint_bridge.py --simulate
 python3 -m unittest -v test_bridge
 ```
 

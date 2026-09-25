@@ -1,6 +1,6 @@
 """A software stand-in for a Canon Ivy 2 printer, for testing without hardware.
 
-It speaks the same protocol as the real printer (see canonprint_bridge.py and
+It speaks the same protocol as the real printer (see canondirectprint_bridge.py and
 https://github.com/dtgreene/ivy2) over any connected socket, and saves the
 JPEGs it receives so the output of the camera app can be inspected.
 """

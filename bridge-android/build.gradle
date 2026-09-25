@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.github.benhawks.canonprint.bridge'
+    namespace 'com.github.benhawks.canondirectprint.bridge'
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.github.benhawks.canonprint.bridge'
+        applicationId 'com.github.benhawks.canondirectprint.bridge'
         minSdk 23
         targetSdk 34
         versionCode 1
@@ -27,7 +27,7 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "CanonPrintBridge-${variant.name}-${variant.versionName}.apk"
+            outputFileName = "CanonDirectPrintBridge-${variant.name}-${variant.versionName}.apk"
         }
     }
 }
