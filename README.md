@@ -1,5 +1,7 @@
 # CanonDirectPrint for Sony α7
 
+[![CI](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/actions/workflows/ci.yaml)
+
 Print photos from a **Sony α7 (ILCE-7)** straight to a **Canon Ivy 2 Mini Photo
 Printer** (Zink, 2×3") or a **Canon SELPHY** Wi-Fi photo printer (CP900 and
 later, 4×6" postcard), using an [OpenMemories](https://github.com/ma1co/OpenMemories-Framework)
@@ -30,15 +32,14 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 | [`esp32/`](esp32/README.md) | Experimental ESP32 bridge sketch |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How it works, protocol notes, design decisions |
 
-> **Status:** everything builds and is tested against a simulated printer
-> (unit, lint and end-to-end tests; a GitHub Actions workflow is in
-> `docs/ci-workflow.yml`, copy it to `.github/workflows/` to enable it). It has **not yet been tested on a
-> real camera or printer**. Please open an issue with your results and the log
+> **Status:** everything builds and is tested against simulated printers
+> (unit, lint and end-to-end tests run by GitHub Actions on every push). It has
+> **not yet been tested on a real camera or printer**. Please open an issue with your results and the log
 > file `CDPRINT/LOG.TXT` from the memory card.
 
 ## Quick start (with an Android phone as the bridge)
 
-1. **Build** (or download the APKs from the CI artifacts once CI is enabled):
+1. **Build** (or download the `apks` artifact from the latest [CI run](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/actions/workflows/ci.yaml?query=branch%3Amain)):
    ```sh
    ./gradlew assembleDebug
    # app/build/outputs/apk/debug/CanonDirectPrint-debug-*.apk             (camera)
