@@ -1,0 +1,15 @@
+# systemd unit for the Raspberry Pi bridge.
+# Install: sudo cp canonprint-bridge.service /etc/systemd/system/ && sudo systemctl enable --now canonprint-bridge
+# Edit the printer address and the path to canonprint_bridge.py first.
+[Unit]
+Description=Ivy2 Wi-Fi to Bluetooth print bridge
+After=bluetooth.target network-online.target
+Wants=bluetooth.target network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/OpenMemories-Ivy2/bridge/canonprint_bridge.py --printer 04:7F:0E:XX:XX:XX
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

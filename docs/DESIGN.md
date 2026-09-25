@@ -1,7 +1,7 @@
 # Design notes
 
 This document records what was learned from the reference projects and the
-resulting plan for Ivy2 Print.
+resulting plan for CanonPrint.
 
 ## 1. How OpenMemories apps work
 
@@ -26,7 +26,7 @@ resulting plan for Ivy2 Print.
     photos via `AvindexStore`, EXIF data, thumbnail, the ~1616px embedded
     *screennail* preview and the full JPEG), `DateTime`.
 * [PMCADemo](https://github.com/ma1co/PMCADemo) shows the conventions every app
-  follows, which Ivy2 Print reuses:
+  follows, which CanonPrint reuses:
   * a `BaseActivity` that maps scan codes to callbacks, uses the trash key as
     "back", and broadcasts `DAConnectionManagerService.AppInfoReceive` on resume;
   * `DAConnectionManagerService.apo` broadcasts to disable auto power off during
@@ -91,14 +91,14 @@ The camera therefore needs a **Wi-Fi → Bluetooth bridge**. Options considered:
 └───────────────────────────────────────────┘  UDP   └────────────────┘
 ```
 
-Bridges: `bridge/ivy2_bridge.py` (Linux/Raspberry Pi), `bridge-android/`
+Bridges: `bridge/canonprint_bridge.py` (Linux/Raspberry Pi), `bridge-android/`
 (companion phone app; the phone's hotspot is the camera's network), and
 `esp32/` (experimental).
 
 ### Finding the bridge (no typing on the camera)
 
-1. `bridge_host` in `IVY2PRNT/CONFIG.TXT`, if set;
-2. otherwise a UDP broadcast `IVY2BRIDGE_DISCOVER` → `IVY2BRIDGE port=9100 name=…`;
+1. `bridge_host` in `CANONPRT/CONFIG.TXT`, if set;
+2. otherwise a UDP broadcast `CANONPRINT_BRIDGE_DISCOVER` → `CANONPRINT_BRIDGE port=9100 name=…`;
 3. the last bridge that worked;
 4. the Wi-Fi gateway (the bridge itself when it hosts the hotspot).
 
@@ -186,7 +186,7 @@ speak exactly this protocol, and how they handle paper sizes other than postcard
 * JVM unit tests for everything protocol- and geometry-related (Ivy 2 and CPNP) (packets match
   the reference implementation byte for byte, stream framing, print flow and
   error handling against an in-memory fake printer, layout maths, discovery).
-* End-to-end tests run the Java clients against `bridge/ivy2_bridge.py
+* End-to-end tests run the Java clients against `bridge/canonprint_bridge.py
   --simulate` and `bridge/fake_selphy.py` and check that the printer receives
   the exact JPEG.
 * Python tests for the bridge relay and discovery.

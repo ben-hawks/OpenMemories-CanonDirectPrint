@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Ivy2 Print</string>
+    <string name="app_name">CanonPrint</string>
     <string name="title_print">Print photo</string>
     <string name="menu_printer">Printer status &amp; settings</string>
     <string name="menu_printer_sub">Choose Ivy 2 or SELPHY, check paper, battery and ink</string>

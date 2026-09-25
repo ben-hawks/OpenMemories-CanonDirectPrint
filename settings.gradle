@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'OpenMemories-Ivy2'
+rootProject.name = 'OpenMemories-CanonPrint'
 include ':app', ':bridge-android'

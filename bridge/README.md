@@ -1,6 +1,6 @@
 # Linux / Raspberry Pi bridge
 
-`ivy2_bridge.py` relays TCP connections from the camera to the printer's
+`canonprint_bridge.py` relays TCP connections from the camera to the printer's
 Bluetooth RFCOMM channel. Python 3.7+ standard library only, Linux only (it uses
 the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
 
@@ -27,7 +27,7 @@ the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
    Wi-Fi, or let the Pi host a hotspot (Raspberry Pi OS Bookworm):
 
    ```sh
-   sudo nmcli device wifi hotspot ssid IVY2-BRIDGE password ivy2print
+   sudo nmcli device wifi hotspot ssid CANONPRINT-BRIDGE password canonprint
    ```
 
    With a hotspot the Pi is the network's gateway, which the camera also tries
@@ -36,20 +36,20 @@ the kernel's `AF_BLUETOOTH` sockets, so PyBluez is not needed).
 3. **Run the bridge:**
 
    ```sh
-   python3 ivy2_bridge.py --printer 04:7F:0E:XX:XX:XX
+   python3 canonprint_bridge.py --printer 04:7F:0E:XX:XX:XX
    ```
 
-   To start it at boot, edit and install `ivy2-bridge.service` (instructions inside).
+   To start it at boot, edit and install `canonprint-bridge.service` (instructions inside).
 
 ## Testing without a printer
 
-`--simulate` replaces the printer with a software stand-in (`fake_printer.py`)
+`--simulate` replaces the printer with a software stand-in (`fake_ivy2.py`)
 that speaks the same protocol and saves every image it receives to
 `received/`. Note that printer images are upside down (the printer expects them
 rotated by 180 degrees).
 
 ```sh
-python3 ivy2_bridge.py --simulate
+python3 canonprint_bridge.py --simulate
 python3 -m unittest -v test_bridge
 ```
 

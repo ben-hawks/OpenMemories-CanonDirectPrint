@@ -5,7 +5,7 @@
     android:orientation="horizontal"
     android:padding="8dp">
 
-    <com.github.benhawks.ivy2print.app.ScalingBitmapView
+    <com.github.benhawks.canonprint.app.ScalingBitmapView
         android:id="@+id/preview"
         android:layout_width="0dp"
         android:layout_height="match_parent"
