@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.github.benhawks.ivy2print'
+    // Sony PlayMemories cameras run Android 2.3.7 (API 10). Compiling against
+    // the API 10 platform guarantees we never touch a newer API by accident.
+    compileSdk 10
+
+    defaultConfig {
+        applicationId 'com.github.benhawks.ivy2print'
+        minSdk 10
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 10
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds false
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi', 'GradleDependency', 'SetTextI18n', 'HardcodedText'
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "Ivy2Print-${variant.name}-${variant.versionName}.apk"
+        }
+    }
+}
+
+dependencies {
+    // OpenMemories framework + Sony API stubs (MIT, https://github.com/ma1co/OpenMemories-Framework).
+    // Vendored from the jitpack build of commit f8df3504d8, see libs/README.md.
+    implementation files('libs/openmemories-framework.jar')
+    compileOnly files('libs/openmemories-stubs.jar')
+
+    testImplementation 'junit:junit:4.13.2'
+}

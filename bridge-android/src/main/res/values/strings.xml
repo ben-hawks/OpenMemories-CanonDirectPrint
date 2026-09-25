@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Ivy2 Bridge</string>
+    <string name="printer">Printer</string>
+    <string name="start">Start bridge</string>
+    <string name="stop">Stop bridge</string>
+    <string name="no_printers">No paired printer found. Pair your Canon Ivy 2 in the system Bluetooth settings first (it shows up as \"Canon (xx:xx) Mini Printer\").</string>
+    <string name="bluetooth_settings">Bluetooth settings</string>
+    <string name="hotspot_settings">Hotspot settings</string>
+    <string name="help">1. Pair the Ivy 2 in the Bluetooth settings.\n2. Turn on this phone\'s Wi-Fi hotspot (or put phone and camera on the same Wi-Fi).\n3. On the camera, join that network in Ivy2 Print → Wi-Fi settings.\n4. Start the bridge, then print from the camera. The camera finds the bridge automatically.</string>
+    <string name="channel_name">Bridge status</string>
+</resources>
