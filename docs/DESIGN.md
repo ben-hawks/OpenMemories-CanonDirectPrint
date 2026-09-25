@@ -79,7 +79,7 @@ The camera therefore needs a **Wi-Fi → Bluetooth bridge**. Options considered:
 | Bridge speaks a high-level "print this JPEG" HTTP API | simple camera code | protocol logic duplicated in every bridge; errors harder to surface |
 | **Bridge is a transparent TCP ↔ RFCOMM byte pipe** (chosen) | tiny bridges (Pi, Android, ESP32); the protocol, image processing and all error reporting live in one place (the camera app); same code would work over real Bluetooth on another device | must frame the RFCOMM stream on the camera side |
 
-## 4. Architecture
+## 4. Architecture (Ivy 2)
 
 ```
 ┌────────── Sony α7 (Android 2.3) ──────────┐        ┌──── bridge ────┐          ┌─────────┐
@@ -132,13 +132,63 @@ into a 4 MB bitmap followed by JPEG compression.
 * **Printer screen**: battery, paper/cover state, firmware, photo count, and
   auto power off (◀▶).
 
-## 5. Testing
+## 5. Canon SELPHY support (CPNP)
 
-* JVM unit tests for everything protocol- and geometry-related (packets match
+From [selphy_go](https://github.com/tbleher/selphy_go) (`PROTOCOL`,
+`send-protocol.txt`, captured from a CP900):
+
+* SELPHY Wi-Fi models speak **CPNP**. Every packet has a 16-byte header:
+  `"CPNP"`, a u16 command (bit 15 set in replies), u16 0, a u16 sequence number
+  (replies echo it), a u16 job id and a u32 payload length.
+* **UDP port 8609**: `DISCOVER 0x101` (broadcast; the reply carries MAC and IP),
+  `GET_ID 0x130` (IEEE 1284 id, e.g. `MDL:CP1300`), `GET_STATUS 0x120` (paper
+  and ink cassette state: 1 = missing, 4 = ready, plus the model name),
+  `FLUSH 0x151`, `START_TCP 0x110` (client/user/job names in UTF-16; the reply
+  gives the job id and a TCP port).
+* **TCP**: the client polls `GET_STATUS`. Byte 0x12 of the reply is the job
+  state: 0 wait, 1 send job flags (`DATA` with 0x40 bytes; 2 = borderless,
+  3 = bordered), 2 send data (the printer asks for `length` bytes at `offset`,
+  which the client sends as a 0x68-byte chunk header plus the file bytes, in
+  `DATA` packets of at most 4 KiB, each acknowledged), 3 done (client sends an
+  end-of-job `DATA`), 4 error. Repeated identical replies mean "busy". The
+  printer may stop asking before the end of the file.
+* The printer decodes a **baseline JPEG** itself and scales it to the paper;
+  no raster conversion is needed.
+
+Implementation choices:
+
+* **No bridge.** The camera joins the SELPHY's *Direct Connection* access
+  point or a shared network. Printer lookup mirrors the Ivy 2 bridge lookup:
+  `selphy_host` config, CPNP broadcast discovery, last printer, then the Wi-Fi
+  gateway (the printer itself in Direct mode).
+* **Rendering**: `PaperFormat.SELPHY_POSTCARD` is 1808×1232 (the printer's
+  native raster with bleed, from the plane header in the notes), landscape,
+  upright. The same affine pipeline as the Ivy 2 renders into it. Portrait photos
+  are turned sideways when *Rotate to fit* is on. *Fit* sends the printer's
+  bordered flag so none of the photo is lost in the borderless bleed. The
+  camera's ~1616 px screennail is scaled up about 12% for this; decoding the 24 MP
+  original is not worth the memory on the camera. If allocating the 9 MB output
+  bitmap fails, the renderer falls back to 16-bit colour.
+* **Copies**: `SelphyPrinter.print` returns only when the printer reports the
+  job done, so copies are simply sent one after another.
+* Error details inside the job (for example ribbon exhausted mid-print) are not
+  decoded by the reverse engineering yet. The app reports "SELPHY reported an
+  error" and relies on the printer's own screen for details.
+* `bridge/fake_selphy.py` simulates a SELPHY. `SelphyEndToEndTest` drives the
+  real `SelphyPrinter` against it, and `CpnpTest` checks packet encoding
+  against the captured traffic.
+
+Not verifiable here: which later models (CP910/CP1200/CP1300/CP1500) still
+speak exactly this protocol, and how they handle paper sizes other than postcard.
+
+## 6. Testing
+
+* JVM unit tests for everything protocol- and geometry-related (Ivy 2 and CPNP) (packets match
   the reference implementation byte for byte, stream framing, print flow and
   error handling against an in-memory fake printer, layout maths, discovery).
-* An end-to-end test runs the Java client against `bridge/ivy2_bridge.py
-  --simulate` and checks that the printer receives the exact JPEG.
+* End-to-end tests run the Java clients against `bridge/ivy2_bridge.py
+  --simulate` and `bridge/fake_selphy.py` and check that the printer receives
+  the exact JPEG.
 * Python tests for the bridge relay and discovery.
 * Android lint with `NewApi` against API 10 (the app is compiled against the
   API 10 platform itself).

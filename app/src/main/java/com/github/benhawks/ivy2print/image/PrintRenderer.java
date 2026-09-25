@@ -66,14 +66,14 @@ public final class PrintRenderer {
      * Decodes the source at the smallest size that still gives full print
      * resolution. The returned bitmap should be recycled by the caller.
      */
-    public static Bitmap decodeForPrint(StreamSource source, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode) throws IOException {
+    public static Bitmap decodeForPrint(StreamSource source, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode, PaperFormat paper) throws IOException {
         int[] size = decodeBounds(source);
-        int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, autoRotate);
-        return decode(source, PrintLayout.sampleSize(size[0], size[1], rotation, mode));
+        int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, autoRotate, paper);
+        return decode(source, PrintLayout.sampleSize(size[0], size[1], rotation, mode, paper));
     }
 
-    private static Bitmap render(Bitmap src, Affine transform, int width, int height) {
-        Bitmap out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    private static Bitmap render(Bitmap src, Affine transform, int width, int height, Bitmap.Config config) {
+        Bitmap out = Bitmap.createBitmap(width, height, config);
         Canvas canvas = new Canvas(out);
         canvas.drawColor(Color.WHITE);
         Matrix matrix = new Matrix();
@@ -83,17 +83,27 @@ public final class PrintRenderer {
         return out;
     }
 
-    /** Upright preview of the sheet (2:3 portrait) at the given size. */
-    public static Bitmap renderPreview(Bitmap src, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode, int width, int height) {
-        int rotation = PrintLayout.rotation(src.getWidth(), src.getHeight(), exifDegrees, autoRotate);
-        return render(src, PrintLayout.toPreview(src.getWidth(), src.getHeight(), rotation, mode, width, height), width, height);
+    /** Upright preview of the sheet at the given size (which should match the paper's aspect ratio). */
+    public static Bitmap renderPreview(Bitmap src, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode, PaperFormat paper, int width, int height) {
+        int rotation = PrintLayout.rotation(src.getWidth(), src.getHeight(), exifDegrees, autoRotate, paper);
+        return render(src, PrintLayout.toPreview(src.getWidth(), src.getHeight(), rotation, mode, paper, width, height),
+                width, height, Bitmap.Config.ARGB_8888);
     }
 
-    /** Printer-ready JPEG: 640x1616, rotated by 180 degrees. */
-    public static byte[] renderForPrinter(Bitmap src, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode, int jpegQuality) {
-        int rotation = PrintLayout.rotation(src.getWidth(), src.getHeight(), exifDegrees, autoRotate);
-        Bitmap out = render(src, PrintLayout.toPrinter(src.getWidth(), src.getHeight(), rotation, mode),
-                PrintLayout.PRINT_WIDTH, PrintLayout.PRINT_HEIGHT);
+    /**
+     * Printer-ready JPEG of paper.outputWidth x paper.outputHeight.
+     * Falls back to a 16-bit bitmap if the camera runs out of memory.
+     */
+    public static byte[] renderForPrinter(Bitmap src, int exifDegrees, boolean autoRotate, PrintLayout.Mode mode, PaperFormat paper, int jpegQuality) {
+        int rotation = PrintLayout.rotation(src.getWidth(), src.getHeight(), exifDegrees, autoRotate, paper);
+        Affine transform = PrintLayout.toPrinter(src.getWidth(), src.getHeight(), rotation, mode, paper);
+        Bitmap out;
+        try {
+            out = render(src, transform, paper.outputWidth, paper.outputHeight, Bitmap.Config.ARGB_8888);
+        } catch (OutOfMemoryError e) {
+            System.gc();
+            out = render(src, transform, paper.outputWidth, paper.outputHeight, Bitmap.Config.RGB_565);
+        }
         try {
             ByteArrayOutputStream jpeg = new ByteArrayOutputStream(512 * 1024);
             out.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpeg);

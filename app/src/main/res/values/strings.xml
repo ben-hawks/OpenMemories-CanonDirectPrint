@@ -2,12 +2,13 @@
     <string name="app_name">Ivy2 Print</string>
     <string name="title_print">Print photo</string>
     <string name="menu_printer">Printer status &amp; settings</string>
-    <string name="menu_printer_sub">Battery, paper, auto power off</string>
+    <string name="menu_printer_sub">Choose Ivy 2 or SELPHY, check paper, battery and ink</string>
     <string name="menu_wifi">Wi-Fi settings</string>
-    <string name="menu_wifi_sub">Join the bridge\'s Wi-Fi network</string>
+    <string name="menu_wifi_sub">Join the bridge\'s or the SELPHY\'s Wi-Fi network</string>
     <string name="status_ready">Ready. Press ENTER or the shutter to print.</string>
     <string name="status_sent">Sent! The printer needs about a minute to print.</string>
     <string name="hint_idle">\u25B2\u25BC select  \u25C0\u25B6 change  ENTER print  TRASH back</string>
-    <string name="hint_busy">Trash button: cancel</string>
-    <string name="hint_printer">ENTER refresh  ◀▶ auto power off  Trash: back</string>
+    <string name="hint_busy">TRASH: cancel</string>
+    <string name="hint_printer">\u25B2\u25BC printer  ENTER refresh  \u25C0\u25B6 auto power off  TRASH back</string>
+    <string name="hint_printer_selphy">\u25B2\u25BC printer  ENTER refresh  TRASH back</string>
 </resources>

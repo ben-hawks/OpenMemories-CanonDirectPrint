@@ -18,8 +18,10 @@ import java.util.Locale;
  * advanced options can be set in IVY2PRNT/CONFIG.TXT on the memory card
  * (typing on the camera is painful), e.g.:
  * <pre>
+ * printer=selphy
  * bridge_host=192.168.4.1
  * bridge_port=9100
+ * selphy_host=192.168.1.50
  * jpeg_quality=95
  * chunk_delay_ms=20
  * </pre>
@@ -27,6 +29,7 @@ import java.util.Locale;
 public class AppSettings {
     private static final String PREFS = "settings";
 
+    public PrinterType printerType = PrinterType.IVY2;
     public PrintLayout.Mode mode = PrintLayout.Mode.FILL;
     public boolean autoRotate = true;
 
@@ -38,6 +41,12 @@ public class AppSettings {
     /** Last bridge that worked, tried first next time. */
     public String lastBridgeHost = null;
     public int lastBridgePort = TcpConnection.DEFAULT_PORT;
+    /** Fixed SELPHY address, or null to auto-detect. */
+    public String selphyHost = null;
+    /** Last SELPHY that worked, tried first next time. */
+    public String lastSelphyHost = null;
+    /** Initial printer from CONFIG.TXT; the choice made on the camera wins afterwards. */
+    private PrinterType configPrinterType = null;
 
     public static File getConfigFile() {
         return new File(Logger.getDirectory(), "CONFIG.TXT");
@@ -47,6 +56,7 @@ public class AppSettings {
         AppSettings s = new AppSettings();
         SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         try {
+            s.printerType = PrinterType.valueOf(p.getString("printer", s.printerType.name()));
             s.mode = PrintLayout.Mode.valueOf(p.getString("mode", s.mode.name()));
         } catch (IllegalArgumentException e) {
             // keep default
@@ -54,16 +64,21 @@ public class AppSettings {
         s.autoRotate = p.getBoolean("autoRotate", s.autoRotate);
         s.lastBridgeHost = p.getString("lastBridgeHost", null);
         s.lastBridgePort = p.getInt("lastBridgePort", s.lastBridgePort);
+        s.lastSelphyHost = p.getString("lastSelphyHost", null);
         s.readConfigFile();
+        if (s.configPrinterType != null && !p.contains("printer"))
+            s.printerType = s.configPrinterType;
         return s;
     }
 
     public void save(Context context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("printer", printerType.name())
                 .putString("mode", mode.name())
                 .putBoolean("autoRotate", autoRotate)
                 .putString("lastBridgeHost", lastBridgeHost)
                 .putInt("lastBridgePort", lastBridgePort)
+                .putString("lastSelphyHost", lastSelphyHost)
                 .apply();
     }
 
@@ -92,7 +107,16 @@ public class AppSettings {
 
     private void apply(String key, String value) {
         try {
-            if (key.equals("bridge_host"))
+            if (key.equals("printer")) {
+                if (value.equalsIgnoreCase("selphy"))
+                    configPrinterType = PrinterType.SELPHY;
+                else if (value.equalsIgnoreCase("ivy2"))
+                    configPrinterType = PrinterType.IVY2;
+                else
+                    Logger.error("Unknown printer " + value);
+            } else if (key.equals("selphy_host"))
+                selphyHost = value.length() > 0 ? value : null;
+            else if (key.equals("bridge_host"))
                 bridgeHost = value.length() > 0 ? value : null;
             else if (key.equals("bridge_port"))
                 bridgePort = Integer.parseInt(value);

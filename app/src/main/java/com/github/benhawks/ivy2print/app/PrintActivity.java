@@ -7,9 +7,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.github.benhawks.ivy2print.R;
+import com.github.benhawks.ivy2print.image.PaperFormat;
 import com.github.benhawks.ivy2print.image.PrintLayout;
 import com.github.benhawks.ivy2print.image.PrintRenderer;
-import com.github.benhawks.ivy2print.ivy2.Ivy2Printer;
 import com.github.ma1co.openmemories.framework.ImageInfo;
 import com.github.ma1co.openmemories.framework.MediaManager;
 
@@ -25,16 +25,15 @@ import java.io.InputStream;
 public class PrintActivity extends BaseActivity {
     public static final String EXTRA_IMAGE_ID = "imageId";
 
-    private static final int PREVIEW_WIDTH = 240;
-    private static final int PREVIEW_HEIGHT = 360;
     private static final int MAX_COPIES = 10;
-    /** A print takes roughly this long; wait before sending the next copy. */
+    /** An Ivy 2 print takes roughly this long; wait before sending the next copy. */
     private static final int SECONDS_BETWEEN_COPIES = 60;
 
-    private static final int OPTION_LAYOUT = 0;
-    private static final int OPTION_ROTATE = 1;
-    private static final int OPTION_COPIES = 2;
-    private static final int OPTION_COUNT = 3;
+    private static final int OPTION_PRINTER = 0;
+    private static final int OPTION_LAYOUT = 1;
+    private static final int OPTION_ROTATE = 2;
+    private static final int OPTION_COPIES = 3;
+    private static final int OPTION_COUNT = 4;
 
     private ScalingBitmapView previewView;
     private TextView titleView;
@@ -53,7 +52,7 @@ public class PrintActivity extends BaseActivity {
     private Bitmap preview;
 
     private volatile Thread job;
-    private volatile Ivy2Printer activePrinter;
+    private volatile PrintBackend activeBackend;
     private volatile boolean cancelled;
 
     @Override
@@ -84,7 +83,7 @@ public class PrintActivity extends BaseActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                // On the camera the "preview" is the embedded 1616px screennail;
+                // On the camera the "preview" is the embedded ~1616px screennail;
                 // on other devices it is the full image and gets subsampled.
                 PrintRenderer.StreamSource stream = new PrintRenderer.StreamSource() {
                     @Override
@@ -97,11 +96,14 @@ public class PrintActivity extends BaseActivity {
                 };
                 try {
                     int[] size = PrintRenderer.decodeBounds(stream);
+                    // Decode once at a size good enough for every printer and option.
                     int sample = Integer.MAX_VALUE;
-                    for (PrintLayout.Mode mode : PrintLayout.Mode.values()) {
-                        for (boolean rotate : new boolean[] { false, true }) {
-                            int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, rotate);
-                            sample = Math.min(sample, PrintLayout.sampleSize(size[0], size[1], rotation, mode));
+                    for (PrinterType type : PrinterType.values()) {
+                        for (PrintLayout.Mode mode : PrintLayout.Mode.values()) {
+                            for (boolean rotate : new boolean[] { false, true }) {
+                                int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, rotate, type.paper);
+                                sample = Math.min(sample, PrintLayout.sampleSize(size[0], size[1], rotation, mode, type.paper));
+                            }
                         }
                     }
                     final Bitmap bitmap = PrintRenderer.decode(stream, sample);
@@ -136,7 +138,9 @@ public class PrintActivity extends BaseActivity {
         if (source == null)
             return;
         Bitmap old = preview;
-        preview = PrintRenderer.renderPreview(source, exifDegrees, settings.autoRotate, settings.mode, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+        PrinterType type = settings.printerType;
+        preview = PrintRenderer.renderPreview(source, exifDegrees, settings.autoRotate, settings.mode, type.paper,
+                type.previewWidth, type.previewHeight);
         previewView.setImageBitmap(preview);
         if (old != null)
             old.recycle();
@@ -144,6 +148,7 @@ public class PrintActivity extends BaseActivity {
 
     private void updateOptions() {
         String[] lines = {
+                "Printer: " + settings.printerType.label,
                 "Layout: " + (settings.mode == PrintLayout.Mode.FILL ? "Fill (borderless)" : "Fit (white border)"),
                 "Rotate to fit: " + (settings.autoRotate ? "On" : "Off"),
                 "Copies: " + copies,
@@ -156,6 +161,9 @@ public class PrintActivity extends BaseActivity {
 
     private void changeOption(int direction) {
         switch (selectedOption) {
+            case OPTION_PRINTER:
+                settings.printerType = settings.printerType.next();
+                break;
             case OPTION_LAYOUT:
                 settings.mode = settings.mode == PrintLayout.Mode.FILL ? PrintLayout.Mode.FIT : PrintLayout.Mode.FILL;
                 break;
@@ -210,21 +218,27 @@ public class PrintActivity extends BaseActivity {
         final Bitmap src = source;
         final PrintLayout.Mode mode = settings.mode;
         final boolean autoRotate = settings.autoRotate;
+        final PaperFormat paper = settings.printerType.paper;
         final int copyCount = copies;
+        final PrintBackend backend = PrintBackend.create(this, settings);
+        activeBackend = backend;
         job = new Thread(new Runnable() {
             @Override
             public void run() {
                 String result;
                 try {
                     postStatus("Preparing image...");
-                    byte[] jpeg = PrintRenderer.renderForPrinter(src, exifDegrees, autoRotate, mode, settings.jpegQuality);
-                    Logger.info("Rendered " + jpeg.length + " byte JPEG");
+                    byte[] jpeg = PrintRenderer.renderForPrinter(src, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+                    Logger.info("Rendered " + jpeg.length + " byte JPEG for " + paper.name);
                     for (int copy = 1; copy <= copyCount; copy++) {
-                        if (copy > 1)
+                        if (copy > 1 && backend.needsPauseBetweenCopies())
                             waitBetweenCopies();
-                        printOnce(jpeg, copy, copyCount);
+                        printOnce(backend, jpeg, mode, copy, copyCount);
                     }
-                    result = copyCount == 1 ? getString(R.string.status_sent) : "All " + copyCount + " copies sent.";
+                    if (backend.needsPauseBetweenCopies())
+                        result = copyCount == 1 ? getString(R.string.status_sent) : "All " + copyCount + " copies sent.";
+                    else
+                        result = copyCount == 1 ? "Printed." : "All " + copyCount + " copies printed.";
                 } catch (Throwable e) {
                     Logger.error("Print failed", e);
                     result = cancelled ? "Cancelled." : "Error: " + e.getMessage();
@@ -234,7 +248,7 @@ public class PrintActivity extends BaseActivity {
                     @Override
                     public void run() {
                         job = null;
-                        activePrinter = null;
+                        activeBackend = null;
                         setAutoPowerOffMode(true);
                         progressBar.setVisibility(View.INVISIBLE);
                         setStatus(message);
@@ -246,31 +260,22 @@ public class PrintActivity extends BaseActivity {
         job.start();
     }
 
-    private void printOnce(byte[] jpeg, final int copy, final int copyCount) throws IOException {
+    private void printOnce(PrintBackend backend, byte[] jpeg, PrintLayout.Mode mode, int copy, int copyCount) throws IOException {
+        if (cancelled)
+            throw new IOException("Cancelled");
         final String prefix = copyCount > 1 ? "[" + copy + "/" + copyCount + "] " : "";
-        PrinterConnector connector = new PrinterConnector(this, settings, new PrinterConnector.StatusListener() {
+        backend.print(jpeg, mode, imageInfo.getFilename(), new PrintBackend.Listener() {
             @Override
             public void onStatus(String message) {
                 postStatus(prefix + message);
             }
+
+            @Override
+            public void onProgress(int value, int max) {
+                postProgress(value, max);
+            }
         });
-        Ivy2Printer printer = connector.connect();
-        activePrinter = printer;
-        try {
-            if (cancelled)
-                throw new IOException("Cancelled");
-            postStatus(prefix + "Sending photo (printer battery level " + connector.sessionInfo.batteryLevel + ")...");
-            printer.print(jpeg, new Ivy2Printer.ProgressListener() {
-                @Override
-                public void onTransferProgress(int sent, int total) {
-                    postProgress(sent, total);
-                }
-            });
-            postProgress(0, 0);
-        } finally {
-            activePrinter = null;
-            printer.close();
-        }
+        postProgress(0, 0);
     }
 
     private void waitBetweenCopies() throws IOException {
@@ -288,11 +293,9 @@ public class PrintActivity extends BaseActivity {
 
     private void cancel() {
         cancelled = true;
-        Ivy2Printer printer = activePrinter;
-        if (printer != null) {
-            printer.cancel();
-            printer.close();
-        }
+        PrintBackend backend = activeBackend;
+        if (backend != null)
+            backend.cancel();
         Thread t = job;
         if (t != null)
             t.interrupt();

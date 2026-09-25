@@ -24,3 +24,5 @@ Portions (BaseActivity, ScalingBitmapView, AppNotificationManager, Wi-Fi setting
 activity) are adapted from PMCADemo, Copyright (c) 2015 ma1co, MIT License.
 The Ivy 2 protocol is reimplemented from the behaviour documented by
 https://github.com/dtgreene/ivy2.
+The SELPHY CPNP protocol is reimplemented from the protocol notes of
+https://github.com/tbleher/selphy_go (GPLv2); no selphy_go code is included.

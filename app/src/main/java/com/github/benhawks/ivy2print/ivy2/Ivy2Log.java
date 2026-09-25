@@ -12,7 +12,7 @@ public final class Ivy2Log {
 
     public static void setSink(Sink s) { sink = s; }
 
-    static void log(String message) {
+    public static void log(String message) {
         Sink s = sink;
         if (s != null)
             s.log(message);

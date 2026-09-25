@@ -53,6 +53,11 @@ python3 ivy2_bridge.py --simulate
 python3 -m unittest -v test_bridge
 ```
 
+`fake_selphy.py` does the same for Canon SELPHY printers: it answers CPNP
+discovery on UDP port 8609 and accepts print jobs like a real SELPHY. Run it on a
+computer on the camera's Wi-Fi to try the app's SELPHY mode without a printer
+(`--no-paper` / `--no-ink` simulate missing cassettes).
+
 ## Options
 
 | Option | Default | |
