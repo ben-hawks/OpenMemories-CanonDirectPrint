@@ -51,9 +51,17 @@ not been tested, please open an issue with your results and the log file
 `CDPRINT/LOG.TXT` from the memory card. The log is not visible over USB in
 *MTP* mode, which only shows photos; use *Mass Storage* mode or a card reader.
 
+## Download
+
+Get both APKs from the [latest release](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/releases/latest):
+`CanonDirectPrint-release-*.apk` for the camera and `CanonDirectPrintBridge-release-*.apk`
+for the phone (only needed for the Ivy 2). Development builds of every push are available
+as the `apks` artifact of the [CI runs](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/actions/workflows/ci.yaml?query=branch%3Amain).
+How releases are made: [`docs/RELEASING.md`](docs/RELEASING.md).
+
 ## Quick start (with an Android phone as the bridge)
 
-1. **Build** (or download the `apks` artifact from the latest [CI run](https://github.com/ben-hawks/OpenMemories-CanonDirectPrint/actions/workflows/ci.yaml?query=branch%3Amain)):
+1. **Download** the APKs (see above), or build them yourself:
    ```sh
    ./gradlew assembleDebug
    # app/build/outputs/apk/debug/CanonDirectPrint-debug-*.apk             (camera)
@@ -64,7 +72,7 @@ not been tested, please open an issue with your results and the log file
 2. **Install on the camera** with [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)
    (camera connected by USB in *MTP* or *Mass Storage* mode):
    ```sh
-   pmca-console install -f CanonDirectPrint-debug-0.1.0.apk
+   pmca-console install -f CanonDirectPrint-release-0.1.0.apk
    ```
 3. **Phone**: install *CanonDirectPrint Bridge*, pair the Ivy 2 in the phone's Bluetooth
    settings (it appears as *Canon (xx:xx) Mini Printer*), turn on the phone's

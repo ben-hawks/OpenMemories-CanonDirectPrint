@@ -1,0 +1,26 @@
+// Release signing, shared by both apps.
+//
+// The release workflow provides a fixed key from GitHub secrets through these
+// environment variables, so every release is signed with the same key and
+// installs as an update over the previous one. Without them (local builds,
+// forks), release builds are signed with the debug key so they still install.
+def keystore = System.getenv('SIGNING_KEYSTORE')
+
+android {
+    signingConfigs {
+        release {
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv('SIGNING_STORE_PASSWORD')
+                keyAlias System.getenv('SIGNING_KEY_ALIAS')
+                keyPassword System.getenv('SIGNING_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
