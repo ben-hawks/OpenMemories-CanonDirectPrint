@@ -43,6 +43,20 @@ openssl base64 -d -A -in release.jks.b64 -out check.jks && keytool -list -keysto
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks")) | Set-Content -NoNewline release.jks.b64
 ```
 
+Copy the file straight to the clipboard instead of from the terminal: the
+file has no trailing newline, so when it is printed your shell prompt (for
+example conda's `(base)`) follows on the same line and is easily copied
+along, which breaks the secret.
+
+```sh
+pbcopy < release.jks.b64                          # macOS
+xclip -selection clipboard < release.jks.b64      # Linux
+```
+
+```powershell
+Get-Content -Raw release.jks.b64 | Set-Clipboard  # Windows
+```
+
 Add these repository secrets (*Settings → Secrets and variables → Actions*):
 
 | Secret | Value |
