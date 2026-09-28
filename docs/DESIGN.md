@@ -106,12 +106,16 @@ Bridges: `bridge/canondirectprint_bridge.py` (Linux/Raspberry Pi), `bridge-andro
 
 RFCOMM and TCP are streams and the bridge may merge or split packets.
 `MessageReader` cuts 34-byte messages and accepts a shorter message once the
-line has been quiet for 250 ms. It deliberately does not look for the `0x430F`
-start code in replies. A real Ivy 2 (via the Android bridge) answered
-START_SESSION with 34 bytes that start differently, and the reference client
-never checks the start code of replies either; it only reads the command echo
-(bytes 5-6) and the error code (byte 7). The first version resynchronised on
-`0x430F`, so it discarded the printer's valid reply and timed out. When the
+line has been quiet for 250 ms. It does not look for a start code in replies:
+a real Ivy 2 starts its replies with **`0x43F0`**, not the `0x430F` of
+requests. The reference client never checks it either; it only reads the
+command echo (bytes 5-6) and the error code (byte 7). The first version
+resynchronised on `0x430F`, so it discarded the printer's valid reply and
+timed out. A real START_SESSION reply:
+
+```
+43f0 0001 2200 0000 017c e4ff ff00 0000 ...   battery (0xe4 & 0x3f) = 36, error 0
+``` When the
 bridge cannot reach the printer it simply closes the TCP connection; the camera
 reports that as "bridge found, but it cannot reach the printer".
 
@@ -267,6 +271,11 @@ network, CPNP discovery and status, printing over IPP (with the automatic
 fallback from CPNP), full-resolution rendering within the 24 MB budget, and
 log timestamps from the camera clock.
 
-Still verified only against simulators: the Ivy 2 path (the printer's
-behaviour after the image transfer, multi-copy timing, and the Android,
-Raspberry Pi and ESP32 bridges), and CPNP printing on a CP900.
+Verified on hardware (ILCE-7, Pixel phone as bridge, Canon Ivy 2): the Android
+bridge over the phone's hotspot, UDP discovery, the Bluetooth link (plain
+"insecure" SPP; Android's default secure socket was refused), the status page
+(3 commands) and a full print (4 commands plus the 357 KB JPEG, 5 replies,
+about 23 s from Bluetooth connect to the printer's "transfer complete").
+
+Still verified only against simulators: the Raspberry Pi and ESP32 bridges,
+Ivy 2 multi-copy timing, and CPNP printing on a CP900.

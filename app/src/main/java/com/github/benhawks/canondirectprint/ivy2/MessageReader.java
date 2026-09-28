@@ -12,9 +12,9 @@ import java.io.IOException;
  * {@link Ivy2Protocol#MESSAGE_LENGTH} bytes long; shorter messages are
  * accepted once the line has been quiet for a moment.
  *
- * Replies are not checked for the 0x430F start code used in requests: a real
- * Ivy 2 answered START_SESSION with 34 bytes that start differently, and the
- * reference client (dtgreene/ivy2 utils.py) never checks it either.
+ * Replies are not checked for a start code: a real Ivy 2 starts them with
+ * 0x43F0 rather than the 0x430F used in requests, and the reference client
+ * (dtgreene/ivy2 utils.py) never checks it either.
  */
 public class MessageReader {
     /** Once a header has been seen, this much silence ends a short message. */
@@ -71,9 +71,9 @@ public class MessageReader {
     private Ivy2Protocol.Response take(int n) {
         byte[] message = new byte[n];
         System.arraycopy(buffer, 0, message, 0, n);
-        if ((message[0] & 0xFF) != 0x43 || (message[1] & 0xFF) != 0x0F)
-            PrintLog.log(String.format(java.util.Locale.US, "Printer reply starts with %02x %02x (requests use 43 0f)",
-                    message[0] & 0xFF, message[1] & 0xFF));
+        int start = ((message[0] & 0xFF) << 8) | (message[1] & 0xFF);
+        if (start != Ivy2Protocol.REPLY_START_CODE && start != Ivy2Protocol.START_CODE)
+            PrintLog.log(String.format(java.util.Locale.US, "Printer reply starts with an unknown code %04x", start));
         System.arraycopy(buffer, n, buffer, 0, length - n);
         length -= n;
         return new Ivy2Protocol.Response(message);

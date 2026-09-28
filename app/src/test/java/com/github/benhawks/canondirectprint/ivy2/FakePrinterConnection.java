@@ -15,8 +15,8 @@ class FakePrinterConnection implements Ivy2Connection {
     int photosPrinted = 42;
     /** Split responses into pieces of this size to exercise the framer. */
     int fragmentSize = Integer.MAX_VALUE;
-    /** First two bytes of every reply (a real Ivy 2 does not use 0x430F here). */
-    int replyStartCode = 0x430F;
+    /** First two bytes of every reply: 0x43F0 on a real Ivy 2 (requests use 0x430F). */
+    int replyStartCode = Ivy2Protocol.REPLY_START_CODE;
     /** Stop answering (simulates a dead Bluetooth link). */
     boolean silent = false;
 

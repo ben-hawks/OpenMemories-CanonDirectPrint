@@ -22,9 +22,13 @@ COMMAND_PRINT_READY = 769
 COMMAND_REBOOT = 65535
 
 
+# A real Ivy 2 starts its replies with 0x43F0, not the 0x430F used in requests.
+REPLY_START_CODE = 0x43F0
+
+
 def response(ack, error=0, payload=b""):
     msg = bytearray(MESSAGE_LENGTH)
-    struct.pack_into(">HhbHB", msg, 0, START_CODE, 1, 32, ack, error)
+    struct.pack_into(">HhbHB", msg, 0, REPLY_START_CODE, 1, 34, ack, error)
     msg[8:8 + len(payload)] = payload
     return bytes(msg)
 

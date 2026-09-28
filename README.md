@@ -41,7 +41,8 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 | Canon SELPHY CP1300 | ✅ Tested: prints over AirPrint/IPP at *Standard* and *High* quality |
 | Other SELPHYs with AirPrint (CP1200, CP1500, ...) | Expected to work like the CP1300; not tested |
 | SELPHY CP900/CP910 (Canon CPNP, no AirPrint) | Tested against the simulator only |
-| Canon Ivy 2 (Android, Raspberry Pi bridges) | Tested against the simulator only |
+| Canon Ivy 2 via the Android bridge | ✅ Tested: prints (Pixel phone hotspot, current Android) |
+| Canon Ivy 2 via the Raspberry Pi bridge | Tested against the simulator only |
 | ESP32 bridge | Experimental; not compiled or tested |
 
 Everything is built and tested on every push by GitHub Actions: unit, lint and

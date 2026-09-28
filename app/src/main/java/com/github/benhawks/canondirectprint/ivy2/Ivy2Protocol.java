@@ -23,6 +23,8 @@ public final class Ivy2Protocol {
     public static final int MESSAGE_LENGTH = 34;
     public static final int HEADER_LENGTH = 8;
     public static final int START_CODE = 0x430F;
+    /** Replies from a real Ivy 2 start with this instead (seen in the field). */
+    public static final int REPLY_START_CODE = 0x43F0;
 
     public static final int COMMAND_START_SESSION = 0;
     public static final int COMMAND_GET_STATUS = 257;
