@@ -15,6 +15,8 @@ class FakePrinterConnection implements Ivy2Connection {
     int photosPrinted = 42;
     /** Split responses into pieces of this size to exercise the framer. */
     int fragmentSize = Integer.MAX_VALUE;
+    /** First two bytes of every reply (a real Ivy 2 does not use 0x430F here). */
+    int replyStartCode = 0x430F;
     /** Stop answering (simulates a dead Bluetooth link). */
     boolean silent = false;
 
@@ -43,6 +45,8 @@ class FakePrinterConnection implements Ivy2Connection {
     private synchronized void send(byte[] data) {
         if (silent)
             return;
+        data[0] = (byte) (replyStartCode >> 8);
+        data[1] = (byte) replyStartCode;
         byte[] n = new byte[outgoing.length + data.length];
         System.arraycopy(outgoing, 0, n, 0, outgoing.length);
         System.arraycopy(data, 0, n, outgoing.length, data.length);

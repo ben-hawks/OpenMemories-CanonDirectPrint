@@ -63,10 +63,15 @@ public class MessageReaderTest {
     }
 
     @Test
-    public void skipsGarbage() throws IOException {
-        byte[] m = FakePrinterConnection.response(769, 0);
-        MessageReader reader = new MessageReader(new ScriptedConnection().add(concat(new byte[] { 1, 0x43, 2 }, m)));
+    public void acceptsRepliesWithoutRequestStartCode() throws IOException {
+        byte[] a = FakePrinterConnection.response(769, 0);
+        byte[] b = FakePrinterConnection.response(257, 0);
+        a[0] = 0x51; // a real Ivy 2 does not start its replies with 0x430F
+        a[1] = 0x00;
+        b[0] = 0x00;
+        MessageReader reader = new MessageReader(new ScriptedConnection().add(concat(a, b)));
         assertEquals(769, reader.read(1000).getAck());
+        assertEquals(257, reader.read(1000).getAck());
     }
 
     @Test

@@ -105,8 +105,13 @@ Bridges: `bridge/canondirectprint_bridge.py` (Linux/Raspberry Pi), `bridge-andro
 ### Framing
 
 RFCOMM and TCP are streams and the bridge may merge or split packets.
-`MessageReader` resynchronises on the start code, cuts 34-byte messages, and
-accepts a shorter message once the line has been quiet for 250 ms. When the
+`MessageReader` cuts 34-byte messages and accepts a shorter message once the
+line has been quiet for 250 ms. It deliberately does not look for the `0x430F`
+start code in replies. A real Ivy 2 (via the Android bridge) answered
+START_SESSION with 34 bytes that start differently, and the reference client
+never checks the start code of replies either; it only reads the command echo
+(bytes 5-6) and the error code (byte 7). The first version resynchronised on
+`0x430F`, so it discarded the printer's valid reply and timed out. When the
 bridge cannot reach the printer it simply closes the TCP connection; the camera
 reports that as "bridge found, but it cannot reach the printer".
 

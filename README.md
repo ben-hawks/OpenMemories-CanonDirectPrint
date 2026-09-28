@@ -77,7 +77,9 @@ If the camera cannot reach the printer, tap **Test printer connection** in the
 phone app (with the bridge stopped). It connects to the Ivy 2 over Bluetooth on its
 own and shows the printer's battery level, or which connection methods failed.
 Make sure the printer is switched on and awake, and not connected to another phone
-or to Canon's own app, since it accepts only one connection at a time.
+or to Canon's own app, since it accepts only one connection at a time. The bridge
+connects over Bluetooth only while the camera is printing, so the Ivy 2's status
+LED blinking white ("not connected") while the bridge is idle is normal.
 
 With a Raspberry Pi instead, see [`bridge/README.md`](bridge/README.md).
 

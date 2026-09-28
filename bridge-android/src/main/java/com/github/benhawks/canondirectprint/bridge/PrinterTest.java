@@ -28,6 +28,13 @@ final class PrinterTest {
         return m;
     }
 
+    static String hex(byte[] b, int n) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++)
+            sb.append(String.format(java.util.Locale.US, "%02x", b[i] & 0xFF)).append(i % 2 == 1 ? " " : "");
+        return sb.toString().trim();
+    }
+
     /** Runs the test on a background thread, reporting to the shared log. */
     static void start(final BluetoothAdapter adapter, final String address, final String name) {
         new Thread(() -> run(adapter, address, name), "printer-test").start();
@@ -66,12 +73,17 @@ final class PrinterTest {
                     break;
                 n += r;
             }
-            if (n >= 13 && (reply[0] & 0xFF) == 0x43 && (reply[1] & 0xFF) == 0x0F) {
+            state.log("Test: printer replied " + n + " bytes: " + hex(reply, n));
+            // Like the reference client, look at the command echo (bytes 5-6) rather than
+            // the start code: the Ivy 2 does not start its replies with 43 0f.
+            int ack = n >= 7 ? ((reply[5] & 0xFF) << 8) | (reply[6] & 0xFF) : -1;
+            if (n >= 13 && ack == 0) {
                 int battery = (((reply[9] & 0xFF) << 8) | (reply[10] & 0xFF)) & 0x3F;
                 int mtu = ((reply[11] & 0xFF) << 8) | (reply[12] & 0xFF);
-                state.log("Test OK: the printer answered (battery level " + battery + "/63, MTU " + mtu + ").");
+                state.log("Test OK: the printer answered START_SESSION (battery level " + battery + "/63, MTU " + mtu
+                        + ", error " + (reply[7] & 0xFF) + ").");
             } else {
-                state.log("Test: connected, but no valid reply (" + n + " bytes). Is this an Ivy 2?");
+                state.log("Test: connected, but the reply is not a START_SESSION answer (command " + ack + ").");
             }
         } catch (IOException e) {
             state.log("Test: connected, but no reply within " + (REPLY_TIMEOUT_MS / 1000) + " s (" + e.getMessage() + ")");

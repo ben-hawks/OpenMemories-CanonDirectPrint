@@ -85,8 +85,9 @@ public class PrinterConnector {
             listener.onStatus("Connecting to printer...");
             Ivy2Printer printer = new Ivy2Printer(connection);
             printer.setChunkDelayMs(settings.chunkDelayMs);
-            // The bridge opens the Bluetooth link when we connect; allow time for that.
-            printer.setResponseTimeoutMs(15000);
+            // The bridge opens the Bluetooth link when we connect, which took 5-8 s
+            // on a phone in the field; allow time for that.
+            printer.setResponseTimeoutMs(25000);
             try {
                 sessionInfo = printer.startSession();
             } catch (Ivy2Exception e) {

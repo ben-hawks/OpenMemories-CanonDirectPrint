@@ -53,6 +53,15 @@ public class Ivy2PrinterTest {
         assertEquals(43, fake.photosPrinted);
     }
 
+    @Test
+    public void printsWhenRepliesUseAnotherStartCode() throws IOException {
+        fake.replyStartCode = 0x5100;
+        byte[] jpeg = new byte[3000];
+        assertEquals(50, printer.startSession().batteryLevel);
+        printer.print(jpeg, null);
+        assertEquals(3000, fake.received.size());
+    }
+
     private void assertPrintFails(Ivy2Exception.Reason reason) throws IOException {
         try {
             printer.print(new byte[100], null);
