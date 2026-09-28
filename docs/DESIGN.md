@@ -199,10 +199,21 @@ so the app now has two SELPHY transports, chosen by `SelphyJob`:
   (`media-empty`, `marker-supply-empty`, ...). Print-Job sends the same
   1808×1232 JPEG with `print-scaling` `fill` or `fit` when supported, then
   Get-Job-Attributes is polled until the job completes.
-* **AUTO** (default): try the protocol that worked last time (CPNP first
-  initially). Fall back to the other one only when the first could not start
+* **AUTO** (default): try the protocol that worked last time, IPP first
+  initially. Fall back to the other one only when the first could not start
   a job at all. Printer problems (paper, ink) are reported, not retried.
   `selphy_protocol=cpnp|ipp` forces one.
+
+Confirmed on a CP1300 (device id `MDL:SELPHY CP1300;CMD:Raster3`). The
+START_TCP reply was `30303030 c001 0000`: a big-endian ephemeral port
+(49152, then 49153 for the next job), exactly as on the CP900. The printer
+still refused every connection to it (the first attempt took about 10 s to be
+refused), so byte order and timing are not the cause. IPP printed first time:
+formats `image/urf, application/octet-stream, image/jpeg, image/pwg-raster`,
+job complete after about 67 s. Because of this, AUTO now tries IPP first.
+Printers without AirPrint refuse port 631 immediately, so the CP900 loses
+almost nothing, and the CP1300 no longer wastes about 12 s and leaves an
+abandoned CPNP job on the printer.
 
 `fake_selphy.py` serves IPP too. Its `--refuse-tcp` flag reproduces the CP1300
 behaviour, and `SelphyEndToEndTest` covers the fallback, the forced

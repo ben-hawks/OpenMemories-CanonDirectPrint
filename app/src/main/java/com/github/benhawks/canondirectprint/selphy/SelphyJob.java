@@ -8,7 +8,8 @@ import java.io.IOException;
 
 /**
  * Prints one JPEG on a SELPHY, choosing between Canon's CPNP protocol and
- * AirPrint/IPP. In AUTO mode the preferred protocol is tried first and the
+ * AirPrint/IPP. In AUTO mode the protocol that worked last time (IPP if
+ * none has yet) is tried first and the
  * other one only if the first could not start a job at all (so a real printer
  * problem such as missing paper is reported, not hidden by a retry).
  */
@@ -51,7 +52,10 @@ public class SelphyJob {
             run(protocol, jpeg, width, height, bordered, jobName, listener);
             return protocol;
         }
-        Protocol first = preferred == Protocol.IPP ? Protocol.IPP : Protocol.CPNP;
+        // IPP first unless CPNP worked last time: it is the documented standard, the
+        // CP1300 refuses CPNP job connections, and printers without AirPrint (CP900)
+        // refuse port 631 immediately, so trying it costs them almost nothing.
+        Protocol first = preferred == Protocol.CPNP ? Protocol.CPNP : Protocol.IPP;
         Protocol second = first == Protocol.IPP ? Protocol.CPNP : Protocol.IPP;
         try {
             run(first, jpeg, width, height, bordered, jobName, listener);

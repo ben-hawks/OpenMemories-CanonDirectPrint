@@ -78,9 +78,10 @@ With a Raspberry Pi instead, see [`bridge/README.md`](bridge/README.md).
 4. Pick a photo and press **ENTER**. The camera stays on until the SELPHY reports
    the print as finished (about a minute per postcard).
 
-The app first tries Canon's CPNP protocol. If the printer accepts the job but
-refuses the print connection (as seen on a CP1300), it prints the same photo over
-AirPrint/IPP instead and uses IPP first from then on. A printer problem, such as
+The app first tries AirPrint/IPP and falls back to Canon's CPNP protocol on
+printers without AirPrint (such as the CP900); it then uses whichever worked
+first from then on. **Tested on a SELPHY CP1300**, which prints over IPP; it
+accepts CPNP jobs but refuses their print connection. A printer problem, such as
 missing paper, is reported straight away and does not trigger the switch.
 `selphy_protocol=cpnp` or `selphy_protocol=ipp` in `CONFIG.TXT` forces one protocol.
 

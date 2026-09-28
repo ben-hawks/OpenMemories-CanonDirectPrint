@@ -133,7 +133,7 @@ public class SelphyEndToEndTest {
             File[] saved = null;
             for (int i = 0; i < 50 && (saved == null || saved.length == 0); i++) {
                 Thread.sleep(100);
-                saved = saveDir.listFiles();
+                saved = savedJpegs();
             }
             assertEquals(1, saved.length);
             assertArrayEquals(jpeg, readFile(saved[0]));
@@ -149,11 +149,21 @@ public class SelphyEndToEndTest {
         return jpeg;
     }
 
+    /** Finished images only (the simulator writes *.part files and renames them). */
+    private File[] savedJpegs() {
+        return saveDir.listFiles(new java.io.FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".jpg");
+            }
+        });
+    }
+
     private File[] awaitSaved(int n) throws InterruptedException {
-        File[] saved = saveDir.listFiles();
+        File[] saved = savedJpegs();
         for (int i = 0; i < 50 && saved.length < n; i++) {
             Thread.sleep(100);
-            saved = saveDir.listFiles();
+            saved = savedJpegs();
         }
         return saved;
     }
@@ -180,16 +190,23 @@ public class SelphyEndToEndTest {
     }
 
     @Test
-    public void prefersProtocolThatWorkedLastTime() throws Exception {
+    public void autoTriesIppFirst() throws Exception {
         startPrinter();
-        SelphyJob.Protocol used = job().print(testJpeg(), 1808, 1232, true, "test",
-                SelphyJob.Protocol.AUTO, SelphyJob.Protocol.IPP, QUIET);
-        assertEquals(SelphyJob.Protocol.IPP, used);
+        assertEquals(SelphyJob.Protocol.IPP, job().print(testJpeg(), 1808, 1232, true, "test",
+                SelphyJob.Protocol.AUTO, null, QUIET));
     }
 
     @Test
-    public void autoUsesCpnpWhenItWorks() throws Exception {
+    public void prefersProtocolThatWorkedLastTime() throws Exception {
         startPrinter();
+        assertEquals(SelphyJob.Protocol.CPNP, job().print(testJpeg(), 1808, 1232, true, "test",
+                SelphyJob.Protocol.AUTO, SelphyJob.Protocol.CPNP, QUIET));
+    }
+
+    @Test
+    public void autoFallsBackToCpnpWithoutIpp() throws Exception {
+        // Like a CP900: no AirPrint, so port 631 is closed.
+        startPrinter("--no-ipp");
         byte[] jpeg = testJpeg();
         assertEquals(SelphyJob.Protocol.CPNP, job().print(jpeg, 1808, 1232, false, "test",
                 SelphyJob.Protocol.AUTO, null, QUIET));
@@ -205,19 +222,31 @@ public class SelphyEndToEndTest {
         } catch (SelphyPrinter.JobConnectException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("refused"));
         }
-        assertEquals(0, saveDir.listFiles().length);
+        assertEquals(0, savedJpegs().length);
     }
 
     @Test
     public void missingPaperIsReportedNotRetriedOverIpp() throws Exception {
-        startPrinter("--no-paper");
+        startPrinter("--no-paper", "--no-ipp");
         try {
-            job().print(testJpeg(), 1808, 1232, false, "test", SelphyJob.Protocol.AUTO, null, QUIET);
+            job().print(testJpeg(), 1808, 1232, false, "test", SelphyJob.Protocol.AUTO, SelphyJob.Protocol.CPNP, QUIET);
             fail();
         } catch (SelphyException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("paper"));
         }
-        assertEquals(0, saveDir.listFiles().length);
+        assertEquals(0, savedJpegs().length);
+    }
+
+    @Test
+    public void missingPaperOverIppIsNotRetriedOverCpnp() throws Exception {
+        startPrinter("--no-paper");
+        try {
+            job().print(testJpeg(), 1808, 1232, false, "test", SelphyJob.Protocol.AUTO, null, QUIET);
+            fail();
+        } catch (IOException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("paper"));
+        }
+        assertEquals(0, savedJpegs().length);
     }
 
     @Test

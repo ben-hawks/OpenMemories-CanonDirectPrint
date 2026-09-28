@@ -3,6 +3,8 @@ package com.github.benhawks.canondirectprint.app;
 import android.os.Environment;
 import android.util.Log;
 
+import com.github.ma1co.openmemories.framework.DateTime;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -10,6 +12,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
@@ -36,7 +39,7 @@ public final class Logger {
                 file.delete();
             BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
             try {
-                writer.append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
+                writer.append(timestamp());
                 writer.append(" [").append(type).append("] ").append(msg);
                 writer.newLine();
             } finally {
@@ -44,6 +47,21 @@ public final class Logger {
             }
         } catch (IOException e) {
             // nothing we can do
+        }
+    }
+
+    /**
+     * The camera's own clock. Android's system clock is not set on these
+     * cameras (it starts at 1970), so ask Sony's time API via the framework.
+     */
+    private static String timestamp() {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+        try {
+            Calendar now = DateTime.getInstance().getCurrentTime();
+            format.setTimeZone(now.getTimeZone());
+            return format.format(now.getTime());
+        } catch (Throwable t) {
+            return format.format(new Date());
         }
     }
 

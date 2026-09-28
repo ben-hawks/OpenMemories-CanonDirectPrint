@@ -40,7 +40,7 @@ public class WifiHelper {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (!isConnected()) {
             if (System.currentTimeMillis() > deadline)
-                throw new IOException("Not connected to Wi-Fi. Join the bridge's network in \"Wi-Fi settings\".");
+                throw new IOException("Not connected to Wi-Fi. Join the printer's (SELPHY) or bridge's (Ivy 2) network in \"Wi-Fi settings\".");
             try {
                 Thread.sleep(250);
             } catch (InterruptedException e) {

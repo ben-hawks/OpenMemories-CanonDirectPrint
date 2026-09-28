@@ -217,8 +217,10 @@ class FakeSelphy:
             return
         os.makedirs(self.save_dir, exist_ok=True)
         path = os.path.join(self.save_dir, "selphy-%s-%d.jpg" % (time.strftime("%Y%m%d-%H%M%S"), job_id))
-        with open(path, "wb") as f:
+        # Write under a temporary name so readers never see a half-written file.
+        with open(path + ".part", "wb") as f:
             f.write(jpeg)
+        os.replace(path + ".part", path)
         log.info("saved %s", path)
 
 
