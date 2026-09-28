@@ -116,4 +116,16 @@ public class CpnpTest {
         assertEquals('b', b[0x049]);
         assertEquals('J', b[0x089]);
     }
+
+    @Test
+    public void startTcpPortsBigEndianFirstThenSwapped() {
+        // "0000" + port 0x1f90 (8080) + 00 00, as in the CP900 capture
+        Cpnp.Packet p = new Cpnp.Packet(0x8110, 1, 1, unhex("30303030 1f90 0000"));
+        int[] ports = Cpnp.startTcpPorts(p);
+        assertEquals(2, ports.length);
+        assertEquals(0x1f90, ports[0]);
+        assertEquals(0x901f, ports[1]);
+        assertEquals(0, Cpnp.startTcpPorts(new Cpnp.Packet(0x8110, 1, 1, unhex("30303030 0000 0000"))).length);
+        assertEquals(1, Cpnp.startTcpPorts(new Cpnp.Packet(0x8110, 1, 1, unhex("30303030 2323 0000"))).length);
+    }
 }

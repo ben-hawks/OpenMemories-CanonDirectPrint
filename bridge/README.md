@@ -58,6 +58,11 @@ discovery on UDP port 8609 and accepts print jobs like a real SELPHY. Run it on 
 computer on the camera's Wi-Fi to try the app's SELPHY mode without a printer
 (`--no-paper` / `--no-ink` simulate missing cassettes).
 
+It also serves AirPrint/IPP on port 631 like a CP1300 (`--no-ipp` turns that off).
+Binding port 631 needs root on Linux; the camera always uses 631, so run the
+simulator with `sudo`. `--refuse-tcp` reproduces a CP1300 that accepts a CPNP job
+but refuses its print connection, which makes the camera fall back to IPP.
+
 ## Options
 
 | Option | Default | |

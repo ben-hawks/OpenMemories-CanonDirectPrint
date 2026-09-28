@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.github.benhawks.canondirectprint.image.PrintLayout;
+import com.github.benhawks.canondirectprint.selphy.SelphyJob;
 import com.github.benhawks.canondirectprint.ivy2.Ivy2Printer;
 import com.github.benhawks.canondirectprint.ivy2.TcpConnection;
 
@@ -22,6 +23,7 @@ import java.util.Locale;
  * bridge_host=192.168.4.1
  * bridge_port=9100
  * selphy_host=192.168.1.50
+ * selphy_protocol=auto
  * jpeg_quality=95
  * chunk_delay_ms=20
  * </pre>
@@ -45,6 +47,10 @@ public class AppSettings {
     public String selphyHost = null;
     /** Last SELPHY that worked, tried first next time. */
     public String lastSelphyHost = null;
+    /** SELPHY protocol: AUTO tries Canon's CPNP and AirPrint/IPP. */
+    public SelphyJob.Protocol selphyProtocol = SelphyJob.Protocol.AUTO;
+    /** SELPHY protocol that worked last time, tried first in AUTO mode. */
+    public SelphyJob.Protocol lastSelphyProtocol = null;
     /** Initial printer from CONFIG.TXT; the choice made on the camera wins afterwards. */
     private PrinterType configPrinterType = null;
 
@@ -65,6 +71,14 @@ public class AppSettings {
         s.lastBridgeHost = p.getString("lastBridgeHost", null);
         s.lastBridgePort = p.getInt("lastBridgePort", s.lastBridgePort);
         s.lastSelphyHost = p.getString("lastSelphyHost", null);
+        String lastProtocol = p.getString("lastSelphyProtocol", null);
+        if (lastProtocol != null) {
+            try {
+                s.lastSelphyProtocol = SelphyJob.Protocol.valueOf(lastProtocol);
+            } catch (IllegalArgumentException e) {
+                // ignore
+            }
+        }
         s.readConfigFile();
         if (s.configPrinterType != null && !p.contains("printer"))
             s.printerType = s.configPrinterType;
@@ -79,6 +93,7 @@ public class AppSettings {
                 .putString("lastBridgeHost", lastBridgeHost)
                 .putInt("lastBridgePort", lastBridgePort)
                 .putString("lastSelphyHost", lastSelphyHost)
+                .putString("lastSelphyProtocol", lastSelphyProtocol != null ? lastSelphyProtocol.name() : null)
                 .apply();
     }
 
@@ -114,6 +129,12 @@ public class AppSettings {
                     configPrinterType = PrinterType.IVY2;
                 else
                     Logger.error("Unknown printer " + value);
+            } else if (key.equals("selphy_protocol")) {
+                try {
+                    selphyProtocol = SelphyJob.Protocol.valueOf(value.toUpperCase(Locale.US));
+                } catch (IllegalArgumentException e) {
+                    Logger.error("Unknown selphy_protocol " + value + " (use auto, cpnp or ipp)");
+                }
             } else if (key.equals("selphy_host"))
                 selphyHost = value.length() > 0 ? value : null;
             else if (key.equals("bridge_host"))

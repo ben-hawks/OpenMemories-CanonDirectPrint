@@ -181,6 +181,33 @@ Implementation choices:
 Not verifiable here: which later models (CP910/CP1200/CP1300/CP1500) still
 speak exactly this protocol, and how they handle paper sizes other than postcard.
 
+### AirPrint/IPP fallback (CP1300 field report)
+
+On a real CP1300 the UDP part of CPNP worked (discovery, GET_ID, status), but
+the TCP connection to the port announced by START_TCP was refused. The
+CP1300 (and later models) also support AirPrint/IPP, a documented standard,
+so the app now has two SELPHY transports, chosen by `SelphyJob`:
+
+* **CPNP hardening**: the raw START_TCP reply is logged; the job connection is
+  retried a few times and also tried with the port bytes swapped, since only a
+  CP900 capture exists. If no connection can be made, `JobConnectException`
+  says so. Nothing has been sent at that point, so trying IPP is safe.
+* **IPP** (`ipp` package): a minimal IPP/1.1 encoder/decoder and a
+  socket-level HTTP/1.1 client (Content-Length or chunked replies, no
+  HttpURLConnection quirks on Android 2.3). Get-Printer-Attributes checks
+  that `image/jpeg` is accepted and reads `printer-state-reasons`
+  (`media-empty`, `marker-supply-empty`, ...). Print-Job sends the same
+  1808×1232 JPEG with `print-scaling` `fill` or `fit` when supported, then
+  Get-Job-Attributes is polled until the job completes.
+* **AUTO** (default): try the protocol that worked last time (CPNP first
+  initially). Fall back to the other one only when the first could not start
+  a job at all. Printer problems (paper, ink) are reported, not retried.
+  `selphy_protocol=cpnp|ipp` forces one.
+
+`fake_selphy.py` serves IPP too. Its `--refuse-tcp` flag reproduces the CP1300
+behaviour, and `SelphyEndToEndTest` covers the fallback, the forced
+protocols, and "no paper does not fall back".
+
 ## 6. Testing
 
 * JVM unit tests for everything protocol- and geometry-related (Ivy 2 and CPNP) (packets match

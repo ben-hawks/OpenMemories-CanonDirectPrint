@@ -20,9 +20,10 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
   the bytes to the printer. The camera app implements the whole printer
   protocol and image processing; the bridge is a dumb byte pipe, so any of the
   bridges works.
-* **SELPHY**: Wi-Fi SELPHYs speak Canon's CPNP protocol over the network, so the
-  camera prints to them **directly**, either by joining the printer's own
-  *Direct Connection* network or with both on the same Wi-Fi. No bridge needed.
+* **SELPHY**: Wi-Fi SELPHYs speak Canon's CPNP protocol over the network, and
+  newer ones (such as the CP1300) also AirPrint/IPP, so the camera prints to them
+  **directly**, either by joining the printer's own *Direct Connection* network or
+  with both on the same Wi-Fi. No bridge needed.
 
 | Directory | What |
 |---|---|
@@ -73,8 +74,15 @@ With a Raspberry Pi instead, see [`bridge/README.md`](bridge/README.md).
      (for example your phone's hotspot).
 3. Open *Printer status & settings* and press ▲/▼ until it shows **Canon SELPHY**.
    It should find the printer and show whether paper and ink are loaded.
+   The status page also shows whether the printer offers AirPrint/IPP.
 4. Pick a photo and press **ENTER**. The camera stays on until the SELPHY reports
    the print as finished (about a minute per postcard).
+
+The app first tries Canon's CPNP protocol. If the printer accepts the job but
+refuses the print connection (as seen on a CP1300), it prints the same photo over
+AirPrint/IPP instead and uses IPP first from then on. A printer problem, such as
+missing paper, is reported straight away and does not trigger the switch.
+`selphy_protocol=cpnp` or `selphy_protocol=ipp` in `CONFIG.TXT` forces one protocol.
 
 Photos are rendered for **postcard (4×6") paper**, turned sideways automatically
 to fit the landscape sheet. *Fill* prints borderless. *Fit* shows the whole photo
@@ -108,6 +116,8 @@ Create `CDPRINT/CONFIG.TXT` on the memory card:
 printer=selphy
 # Skip auto-discovery and always use this SELPHY
 selphy_host=192.168.1.50
+# SELPHY protocol: auto (default), cpnp (Canon) or ipp (AirPrint)
+selphy_protocol=auto
 # Skip auto-discovery and always use this Ivy 2 bridge
 bridge_host=192.168.4.1
 bridge_port=9100
@@ -121,7 +131,7 @@ chunk_delay_ms=20
 
 ```sh
 python3 bridge/canondirectprint_bridge.py --simulate     # fake Ivy 2 behind a bridge, saves images to received/
-python3 bridge/fake_selphy.py                # fake SELPHY on UDP 8609, saves images to received/
+sudo python3 bridge/fake_selphy.py           # fake SELPHY (CPNP on UDP 8609, IPP on 631), saves images to received/
 ./gradlew :app:testDebugUnitTest             # includes Java → Python end-to-end tests for both printers
 cd bridge && python3 -m unittest -v test_bridge
 ```

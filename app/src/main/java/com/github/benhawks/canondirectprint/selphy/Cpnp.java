@@ -176,6 +176,30 @@ public final class Cpnp {
 
     // ---- response parsers -------------------------------------------------
 
+    /**
+     * TCP port(s) to try from a START_TCP reply ("0000" + port + 00 00 on the
+     * CP900): the big-endian value first, then the byte-swapped one.
+     * Empty if the printer is not ready (port 0).
+     */
+    public static int[] startTcpPorts(Packet p) {
+        if (p.payload.length < 6)
+            return new int[0];
+        int be = (p.u8(4) << 8) | p.u8(5);
+        int le = (p.u8(5) << 8) | p.u8(4);
+        if (be == 0)
+            return new int[0];
+        return le == be || le == 0 ? new int[] { be } : new int[] { be, le };
+    }
+
+    public static String hex(byte[] data) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < data.length && i < 64; i++)
+            sb.append(String.format(java.util.Locale.US, "%02x", data[i] & 0xFF));
+        if (data.length > 64)
+            sb.append("...");
+        return sb.toString();
+    }
+
     /** DISCOVER response: returns {mac, ip} as strings, or null. */
     public static String[] parseDiscover(Packet p) {
         if (p.payload.length < 6)

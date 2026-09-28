@@ -5,6 +5,9 @@ import android.content.Context;
 import com.github.benhawks.canondirectprint.image.PaperFormat;
 import com.github.benhawks.canondirectprint.image.PrintLayout;
 import com.github.benhawks.canondirectprint.selphy.Cpnp;
+import com.github.benhawks.canondirectprint.ipp.Ipp;
+import com.github.benhawks.canondirectprint.ipp.IppPrinter;
+import com.github.benhawks.canondirectprint.selphy.SelphyJob;
 import com.github.benhawks.canondirectprint.selphy.SelphyPrinter;
 
 import java.io.IOException;
@@ -22,6 +25,7 @@ public class SelphyBackend extends PrintBackend {
     private final Context context;
     private final AppSettings settings;
     private volatile SelphyPrinter active;
+    private volatile SelphyJob activeJob;
     private volatile boolean cancelled;
 
     SelphyBackend(Context context, AppSettings settings) {
@@ -84,27 +88,39 @@ public class SelphyBackend extends PrintBackend {
 
     @Override
     public void print(byte[] jpeg, PrintLayout.Mode mode, String jobName, final Listener listener) throws IOException {
-        SelphyPrinter printer = open(listener);
+        SelphyPrinter found = open(listener);
+        String host = found.getHost();
+        found.close();
+        active = null;
+
+        SelphyJob job = new SelphyJob(host);
+        activeJob = job;
         try {
-            listener.onStatus("Sending photo to SELPHY...");
+            if (cancelled)
+                throw new IOException("Cancelled");
             PaperFormat paper = PrinterType.SELPHY.paper;
             // FIT already has white borders in the image; ask for the printer's bordered layout
             // too so none of the photo is lost in the borderless bleed.
-            printer.print(jpeg, paper.outputWidth, paper.outputHeight, mode == PrintLayout.Mode.FIT, jobName,
-                    new SelphyPrinter.ProgressListener() {
+            SelphyJob.Protocol used = job.print(jpeg, paper.outputWidth, paper.outputHeight,
+                    mode == PrintLayout.Mode.FIT, jobName, settings.selphyProtocol, settings.lastSelphyProtocol,
+                    new SelphyJob.Listener() {
                         @Override
-                        public void onTransferProgress(int sent, int total) {
-                            listener.onProgress(sent, total);
+                        public void onStatus(String message) {
+                            listener.onStatus(message);
                         }
 
                         @Override
-                        public void onState(String state) {
-                            listener.onStatus(state);
+                        public void onProgress(int value, int max) {
+                            listener.onProgress(value, max);
                         }
                     });
+            Logger.info("Printed via " + used);
+            if (used != settings.lastSelphyProtocol) {
+                settings.lastSelphyProtocol = used;
+                settings.save(context);
+            }
         } finally {
-            active = null;
-            printer.close();
+            activeJob = null;
         }
     }
 
@@ -120,10 +136,24 @@ public class SelphyBackend extends PrintBackend {
             sb.append("Address: ").append(printer.getHost()).append('\n');
             sb.append("Paper cassette: ").append(cassette(status.paper)).append('\n');
             sb.append("Ink cassette: ").append(cassette(status.ink)).append('\n');
+            sb.append("AirPrint/IPP: ").append(describeIpp(printer.getHost())).append('\n');
+            if (settings.lastSelphyProtocol != null)
+                sb.append("Last printed via: ").append(settings.lastSelphyProtocol == SelphyJob.Protocol.IPP ? "AirPrint/IPP" : "Canon CPNP").append('\n');
             return sb.toString();
         } finally {
             active = null;
             printer.close();
+        }
+    }
+
+    private static String describeIpp(String host) {
+        try {
+            Ipp.Response r = new IppPrinter(host, Ipp.DEFAULT_PORT, IppPrinter.DEFAULT_PATH).getPrinterAttributes();
+            boolean jpeg = r.strings("document-format-supported").contains("image/jpeg");
+            return (jpeg ? "available" : "available, but no JPEG support") + " (" + r.string("printer-make-and-model") + ")";
+        } catch (IOException e) {
+            Logger.info("IPP probe failed: " + e);
+            return "not available";
         }
     }
 
@@ -147,5 +177,8 @@ public class SelphyBackend extends PrintBackend {
         SelphyPrinter printer = active;
         if (printer != null)
             printer.cancel();
+        SelphyJob job = activeJob;
+        if (job != null)
+            job.cancel();
     }
 }

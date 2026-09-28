@@ -45,6 +45,9 @@ public class SelphyPrinter {
     private static final int UDP_TIMEOUT_MS = 2000;
     private static final int UDP_RETRIES = 3;
     private static final int TCP_TIMEOUT_MS = 20000;
+    private static final int JOB_CONNECT_TIMEOUT_MS = 5000;
+    private static final int JOB_CONNECT_ATTEMPTS = 3;
+    private static final int JOB_CONNECT_RETRY_MS = 500;
     /** Give up if the printer makes no progress for this long. */
     private static final int STALL_TIMEOUT_MS = 180000;
 
@@ -186,17 +189,15 @@ public class SelphyPrinter {
         udpTransact(Cpnp.CMD_FLUSH, new byte[4]);
 
         Cpnp.Packet start = udpTransact(Cpnp.CMD_START_TCP, Cpnp.startTcpPayload("OpenMemories", "camera", jobName));
+        PrintLog.log("SELPHY START_TCP reply: " + start + " payload " + Cpnp.hex(start.payload));
         int jobId = start.jobId;
-        int port = start.payload.length >= 6 ? ((start.u8(4) << 8) | start.u8(5)) : 0;
-        if (port == 0)
+        int[] ports = Cpnp.startTcpPorts(start);
+        if (ports.length == 0)
             throw new SelphyException("SELPHY is not ready to accept a job. Turn it off and on again.");
-        PrintLog.log("SELPHY job " + jobId + " on TCP port " + port);
 
-        Socket socket = new Socket();
+        Socket socket = connectJob(ports);
         tcp = socket;
         try {
-            socket.setTcpNoDelay(true);
-            socket.connect(new InetSocketAddress(address, port), TCP_TIMEOUT_MS);
             socket.setSoTimeout(TCP_TIMEOUT_MS);
             runJob(socket.getInputStream(), socket.getOutputStream(), jobId, jpeg, width, height, bordered, listener);
         } catch (IOException e) {
@@ -210,6 +211,48 @@ public class SelphyPrinter {
             } catch (IOException e) {
                 // ignore
             }
+        }
+    }
+
+    /**
+     * Opens the job's TCP connection. The CP900 capture has the port big-endian
+     * in bytes 4..5 of the START_TCP reply; other models have not been
+     * captured, so the byte-swapped value is tried as well, and the printer
+     * gets a moment in case it starts listening late.
+     *
+     * @throws JobConnectException if no connection could be made (nothing has been sent yet)
+     */
+    private Socket connectJob(int[] ports) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt < JOB_CONNECT_ATTEMPTS; attempt++) {
+            for (int port : ports) {
+                if (cancelled)
+                    throw new IOException("Cancelled");
+                Socket socket = new Socket();
+                try {
+                    socket.setTcpNoDelay(true);
+                    socket.connect(new InetSocketAddress(address, port), JOB_CONNECT_TIMEOUT_MS);
+                    PrintLog.log("SELPHY job connection open on port " + port + " (attempt " + (attempt + 1) + ")");
+                    return socket;
+                } catch (IOException e) {
+                    PrintLog.log("SELPHY job connection to port " + port + " failed: " + e);
+                    last = e;
+                    try {
+                        socket.close();
+                    } catch (IOException ignored) {
+                        // ignore
+                    }
+                }
+            }
+            sleep(JOB_CONNECT_RETRY_MS);
+        }
+        throw new JobConnectException("SELPHY refused the print connection (" + (last != null ? last.getMessage() : "?") + ")");
+    }
+
+    /** The printer accepted the job request but its print connection could not be opened. */
+    public static class JobConnectException extends SelphyException {
+        public JobConnectException(String message) {
+            super(message);
         }
     }
 
