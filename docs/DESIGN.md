@@ -180,7 +180,12 @@ Implementation choices:
   decoded with a few rows of overlap, for bilinear filtering, and clipped to
   their own rectangle, so neighbours meet exactly with no seams, and bands
   cropped away in *Fill* mode are skipped. Peak memory is the output bitmap
-  plus one band (about 1.5 MB). Any failure (out of memory, no JPEG for RAW-only
+  plus one band (about 1.5 MB). The camera gives the app a 24 MB budget
+  (Java heap and bitmaps together), which the first field test hit: the 7 MB
+  screennail kept for the preview left no room for the 9 MB output bitmap. The
+  screennail is therefore released before a full-resolution render and decoded
+  again afterwards (or for the fallback). The small on-screen preview is a
+  separate bitmap and stays visible. Any failure (out of memory, no JPEG for RAW-only
   shots) asks the user before falling back to the screennail. The Ivy 2 does
   not offer the option: its 640×1616 raster maps 1:1 onto the screennail's
   long side.

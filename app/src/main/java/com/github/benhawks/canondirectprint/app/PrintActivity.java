@@ -84,36 +84,45 @@ public class PrintActivity extends BaseActivity {
     }
 
     /** Decodes the camera's built-in preview JPEG (large enough for the print) in the background. */
+    /**
+     * Decodes the camera's built-in preview JPEG, which is large enough for
+     * the Ivy 2 and for the SELPHY at standard quality. Blocking.
+     */
+    private Bitmap decodeSource() throws IOException {
+        // On the camera the "preview" is the embedded ~1616px screennail;
+        // on other devices it is the full image and gets subsampled.
+        PrintRenderer.StreamSource stream = new PrintRenderer.StreamSource() {
+            @Override
+            public InputStream open() throws IOException {
+                InputStream in = imageInfo.getPreviewImage();
+                if (in == null)
+                    throw new IOException("Cannot open image");
+                return in;
+            }
+        };
+        int[] size = PrintRenderer.decodeBounds(stream);
+        // Decode once at a size good enough for every printer and option.
+        int sample = Integer.MAX_VALUE;
+        for (PrinterType type : PrinterType.values()) {
+            for (PrintLayout.Mode mode : PrintLayout.Mode.values()) {
+                for (boolean rotate : new boolean[] { false, true }) {
+                    int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, rotate, type.paper);
+                    sample = Math.min(sample, PrintLayout.sampleSize(size[0], size[1], rotation, mode, type.paper));
+                }
+            }
+        }
+        Bitmap bitmap = PrintRenderer.decode(stream, sample);
+        Logger.info("Loaded " + imageInfo.getFilename() + " " + size[0] + "x" + size[1]
+                + " sample=" + sample + " -> " + bitmap.getWidth() + "x" + bitmap.getHeight());
+        return bitmap;
+    }
+
     private void loadSource() {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                // On the camera the "preview" is the embedded ~1616px screennail;
-                // on other devices it is the full image and gets subsampled.
-                PrintRenderer.StreamSource stream = new PrintRenderer.StreamSource() {
-                    @Override
-                    public InputStream open() throws IOException {
-                        InputStream in = imageInfo.getPreviewImage();
-                        if (in == null)
-                            throw new IOException("Cannot open image");
-                        return in;
-                    }
-                };
                 try {
-                    int[] size = PrintRenderer.decodeBounds(stream);
-                    // Decode once at a size good enough for every printer and option.
-                    int sample = Integer.MAX_VALUE;
-                    for (PrinterType type : PrinterType.values()) {
-                        for (PrintLayout.Mode mode : PrintLayout.Mode.values()) {
-                            for (boolean rotate : new boolean[] { false, true }) {
-                                int rotation = PrintLayout.rotation(size[0], size[1], exifDegrees, rotate, type.paper);
-                                sample = Math.min(sample, PrintLayout.sampleSize(size[0], size[1], rotation, mode, type.paper));
-                            }
-                        }
-                    }
-                    final Bitmap bitmap = PrintRenderer.decode(stream, sample);
-                    Logger.info("Loaded " + imageInfo.getFilename() + " " + size[0] + "x" + size[1]
-                            + " sample=" + sample + " -> " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                    final Bitmap bitmap = decodeSource();
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -246,11 +255,23 @@ public class PrintActivity extends BaseActivity {
         hintView.setText(R.string.hint_busy);
         setAutoPowerOffMode(false);
 
-        final Bitmap src = source;
         final PrintLayout.Mode mode = settings.mode;
         final boolean autoRotate = settings.autoRotate;
         final PaperFormat paper = settings.printerType.paper;
         final boolean fullResolution = settings.printerType == PrinterType.SELPHY && settings.highQuality;
+        final Bitmap src;
+        if (fullResolution) {
+            // The app only gets 24 MB on the camera: the 7 MB preview image and the
+            // 9 MB print bitmap do not fit next to each other. The small on-screen
+            // preview is a separate bitmap and stays visible; the preview image is
+            // decoded again after the print (or for a fallback).
+            src = null;
+            source.recycle();
+            source = null;
+            System.gc();
+        } else {
+            src = source;
+        }
         final int copyCount = copies;
         final PrintBackend backend = PrintBackend.create(this, settings);
         activeBackend = backend;
@@ -263,8 +284,18 @@ public class PrintActivity extends BaseActivity {
                     if (fullResolution)
                         jpeg = renderFullResolution(mode, autoRotate, paper);
                     if (jpeg == null) {
+                        Bitmap image = src;
+                        if (image == null) {
+                            postStatus("Loading preview image...");
+                            image = decodeSource();
+                        }
                         postStatus("Preparing image...");
-                        jpeg = PrintRenderer.renderForPrinter(src, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+                        try {
+                            jpeg = PrintRenderer.renderForPrinter(image, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+                        } finally {
+                            if (image != src)
+                                image.recycle();
+                        }
                     }
                     Logger.info("Rendered " + jpeg.length + " byte JPEG for " + paper.name);
                     for (int copy = 1; copy <= copyCount; copy++) {
@@ -278,12 +309,28 @@ public class PrintActivity extends BaseActivity {
                         result = copyCount == 1 ? "Printed." : "All " + copyCount + " copies printed.";
                 } catch (Throwable e) {
                     Logger.error("Print failed", e);
-                    result = cancelled ? "Cancelled." : "Error: " + e.getMessage();
+                    result = cancelled || "Cancelled".equals(e.getMessage()) ? "Cancelled." : "Error: " + e.getMessage();
                 }
                 final String message = result;
+                // Bring back the preview image released for a full-resolution print.
+                Bitmap reloaded = null;
+                if (fullResolution && !isFinishing()) {
+                    try {
+                        reloaded = decodeSource();
+                    } catch (Throwable e) {
+                        Logger.error("Reloading the preview image failed", e);
+                    }
+                }
+                final Bitmap restored = reloaded;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (restored != null) {
+                            if (isFinishing() || source != null)
+                                restored.recycle();
+                            else
+                                source = restored;
+                        }
                         job = null;
                         activeBackend = null;
                         setAutoPowerOffMode(true);
@@ -305,6 +352,9 @@ public class PrintActivity extends BaseActivity {
      */
     private byte[] renderFullResolution(PrintLayout.Mode mode, boolean autoRotate, PaperFormat paper) throws IOException {
         postStatus("Preparing full-resolution image...");
+        Runtime runtime = Runtime.getRuntime();
+        Logger.info("Heap before full-resolution render: " + ((runtime.totalMemory() - runtime.freeMemory()) >> 10)
+                + " KB used, limit " + (runtime.maxMemory() >> 10) + " KB");
         String reason;
         try {
             long start = System.currentTimeMillis();
