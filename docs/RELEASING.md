@@ -26,7 +26,21 @@ uninstalled before installing the next. To sign every release with the same key:
 ```sh
 keytool -genkeypair -keystore release.jks -alias canondirectprint \
     -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=CanonDirectPrint"
-base64 -w0 release.jks > release.jks.b64
+```
+
+Encode it as a single line of plain base64. Line breaks or `-----BEGIN` header
+lines make the workflow fail with `base64: invalid input`.
+
+```sh
+# macOS / Linux
+openssl base64 -A -in release.jks -out release.jks.b64
+# check: decodes back to a keystore that lists the alias
+openssl base64 -d -A -in release.jks.b64 -out check.jks && keytool -list -keystore check.jks
+```
+
+```powershell
+# Windows (PowerShell)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks")) | Set-Content -NoNewline release.jks.b64
 ```
 
 Add these repository secrets (*Settings → Secrets and variables → Actions*):
@@ -37,6 +51,9 @@ Add these repository secrets (*Settings → Secrets and variables → Actions*):
 | `SIGNING_STORE_PASSWORD` | the keystore password |
 | `SIGNING_KEY_ALIAS` | `canondirectprint` |
 | `SIGNING_KEY_PASSWORD` | the key password (the same as the keystore password unless you chose otherwise) |
+
+If a release run fails at the *Signing key* step, fix the secret and use
+**Re-run all jobs** on that run: the tag does not need to be pushed again.
 
 Keep `release.jks` and its password somewhere safe and out of the repository.
 If the key is lost, users have to uninstall the apps to install new releases.
