@@ -73,6 +73,12 @@ not been tested, please open an issue with your results and the log file
 5. Pick a photo, choose the layout, press **ENTER** (or the shutter). The camera
    finds the bridge automatically.
 
+If the camera cannot reach the printer, tap **Test printer connection** in the
+phone app (with the bridge stopped). It connects to the Ivy 2 over Bluetooth on its
+own and shows the printer's battery level, or which connection methods failed.
+Make sure the printer is switched on and awake, and not connected to another phone
+or to Canon's own app, since it accepts only one connection at a time.
+
 With a Raspberry Pi instead, see [`bridge/README.md`](bridge/README.md).
 
 ## Quick start (Canon SELPHY)

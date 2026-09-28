@@ -34,6 +34,7 @@ public class MainActivity extends Activity implements BridgeState.Listener {
     private Spinner printerSpinner;
     private TextView noPrinters;
     private Button toggle;
+    private Button testPrinter;
     private TextView status;
     private TextView logView;
     private ScrollView logScroll;
@@ -51,6 +52,8 @@ public class MainActivity extends Activity implements BridgeState.Listener {
         logScroll = findViewById(R.id.logScroll);
 
         toggle.setOnClickListener(v -> onToggle());
+        testPrinter = findViewById(R.id.testPrinter);
+        testPrinter.setOnClickListener(v -> onTestPrinter());
         findViewById(R.id.bluetoothSettings).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
         findViewById(R.id.hotspotSettings).setOnClickListener(v -> openHotspotSettings());
@@ -131,6 +134,25 @@ public class MainActivity extends Activity implements BridgeState.Listener {
                 printerSpinner.setSelection(i);
     }
 
+    /** Bluetooth-only check: connect to the printer and ask it for its battery level. */
+    private void onTestPrinter() {
+        if (!hasPermissions()) {
+            requestPermissions(requiredPermissions(), REQUEST_PERMISSIONS);
+            return;
+        }
+        int index = printerSpinner.getSelectedItemPosition();
+        if (index < 0 || index >= printers.size())
+            return;
+        BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = bm != null ? bm.getAdapter() : null;
+        if (adapter == null || !adapter.isEnabled()) {
+            BridgeState.get().log("Test: Bluetooth is off");
+            return;
+        }
+        String[] printer = printers.get(index);
+        PrinterTest.start(adapter, printer[0], printer[1]);
+    }
+
     private void onToggle() {
         if (BridgeState.get().isRunning()) {
             stopService(new Intent(this, BridgeService.class));
@@ -171,6 +193,8 @@ public class MainActivity extends Activity implements BridgeState.Listener {
         BridgeState s = BridgeState.get();
         boolean running = s.isRunning();
         toggle.setText(running ? R.string.stop : R.string.start);
+        // The printer takes one connection at a time; test only while the bridge is stopped.
+        testPrinter.setEnabled(!running);
         printerSpinner.setEnabled(!running);
         status.setText(s.getStatus());
         logView.setText(s.getLog());
