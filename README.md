@@ -33,10 +33,22 @@ endorsed by Canon or Sony, and is unrelated to Canon's own "Canon PRINT" apps.*
 | [`esp32/`](esp32/README.md) | Experimental ESP32 bridge sketch |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How it works, protocol notes, design decisions |
 
-> **Status:** everything builds and is tested against simulated printers
-> (unit, lint and end-to-end tests run by GitHub Actions on every push). It has
-> **not yet been tested on a real camera or printer**. Please open an issue with your results and the log
-> file `CDPRINT/LOG.TXT` from the memory card.
+## Status
+
+| Hardware | Status |
+|---|---|
+| Sony α7 (ILCE-7) | ✅ Tested: install, UI and keys, Wi-Fi, printing |
+| Canon SELPHY CP1300 | ✅ Tested: prints over AirPrint/IPP at *Standard* and *High* quality |
+| Other SELPHYs with AirPrint (CP1200, CP1500, ...) | Expected to work like the CP1300; not tested |
+| SELPHY CP900/CP910 (Canon CPNP, no AirPrint) | Tested against the simulator only |
+| Canon Ivy 2 (Android, Raspberry Pi bridges) | Tested against the simulator only |
+| ESP32 bridge | Experimental; not compiled or tested |
+
+Everything is built and tested on every push by GitHub Actions: unit, lint and
+end-to-end tests against simulated printers. If you try a combination that has
+not been tested, please open an issue with your results and the log file
+`CDPRINT/LOG.TXT` from the memory card. The log is not visible over USB in
+*MTP* mode, which only shows photos; use *Mass Storage* mode or a card reader.
 
 ## Quick start (with an Android phone as the bridge)
 
@@ -107,8 +119,8 @@ in every JPEG; **Copies** (Ivy 2: sent a minute apart, since the printer gives n
 
 *High* is the default. The postcard's native raster is 1808×1232, so the preview
 image has to be scaled up about 12% (about 270 dpi instead of 300). The full
-photo is decoded in strips to fit in the camera's memory, which takes a few
-seconds longer. If that fails (for example for a RAW-only photo), the camera
+photo is decoded in strips to fit in the camera's 24 MB app memory, which takes
+about 10 seconds longer on the α7. If that fails (for example for a RAW-only photo), the camera
 says why and asks whether to print from the preview instead (ENTER) or cancel
 (TRASH). The Ivy 2 has no Quality option: its 640×1616 raster is already
 covered by the preview image.

@@ -185,8 +185,12 @@ Implementation choices:
   screennail kept for the preview left no room for the 9 MB output bitmap. The
   screennail is therefore released before a full-resolution render and decoded
   again afterwards (or for the fallback). The small on-screen preview is a
-  separate bitmap and stays visible. Any failure (out of memory, no JPEG for RAW-only
-  shots) asks the user before falling back to the screennail. The Ivy 2 does
+  separate bitmap and stays visible. On the α7 with the CP1300, 3.2 MB of the
+  24 MB was in use before the render, and rendering a 6000×4000 photo took
+  about 9.4 s. The bands are kept at 256 rows on purpose: larger bands would
+  be faster but use more of the tight memory budget. Any failure (out of
+  memory, no JPEG for RAW-only shots) asks the user before falling back to
+  the screennail. The Ivy 2 does
   not offer the option: its 640×1616 raster maps 1:1 onto the screennail's
   long side.
 * **Copies**: `SelphyPrinter.print` returns only when the printer reports the
@@ -198,8 +202,9 @@ Implementation choices:
   real `SelphyPrinter` against it, and `CpnpTest` checks packet encoding
   against the captured traffic.
 
-Not verifiable here: which later models (CP910/CP1200/CP1300/CP1500) still
-speak exactly this protocol, and how they handle paper sizes other than postcard.
+Not verified: whether the CP910, CP1200 and CP1500 accept CPNP print jobs
+(the CP1300 does not, see below), and how SELPHYs handle paper sizes other
+than postcard.
 
 ### AirPrint/IPP fallback (CP1300 field report)
 
@@ -251,6 +256,12 @@ protocols, and "no paper does not fall back".
 * Android lint with `NewApi` against API 10 (the app is compiled against the
   API 10 platform itself).
 
-Not verifiable without hardware: the real printer's behaviour after the image
-transfer, the multi-copy timing, and the camera-specific UI (non-square
-pixels, key codes), which follow PMCADemo's proven code.
+Verified on hardware (ILCE-7 with a SELPHY CP1300): installing with
+Sony-PMCA-RE, the camera UI and keys, joining the printer's Direct Connection
+network, CPNP discovery and status, printing over IPP (with the automatic
+fallback from CPNP), full-resolution rendering within the 24 MB budget, and
+log timestamps from the camera clock.
+
+Still verified only against simulators: the Ivy 2 path (the printer's
+behaviour after the image transfer, multi-copy timing, and the Android,
+Raspberry Pi and ESP32 bridges), and CPNP printing on a CP900.
