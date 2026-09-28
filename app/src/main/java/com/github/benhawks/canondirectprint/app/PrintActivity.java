@@ -32,8 +32,8 @@ public class PrintActivity extends BaseActivity {
     private static final int OPTION_PRINTER = 0;
     private static final int OPTION_LAYOUT = 1;
     private static final int OPTION_ROTATE = 2;
-    private static final int OPTION_COPIES = 3;
-    private static final int OPTION_COUNT = 4;
+    private static final int OPTION_QUALITY = 3;
+    private static final int OPTION_COPIES = 4;
 
     private ScalingBitmapView previewView;
     private TextView titleView;
@@ -54,6 +54,11 @@ public class PrintActivity extends BaseActivity {
     private volatile Thread job;
     private volatile PrintBackend activeBackend;
     private volatile boolean cancelled;
+
+    /** Set while the job waits for the user to confirm printing from the preview image. */
+    private final Object confirmLock = new Object();
+    private volatile boolean awaitingConfirm;
+    private Boolean confirmAnswer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,21 +151,44 @@ public class PrintActivity extends BaseActivity {
             old.recycle();
     }
 
+    /**
+     * Options shown for the current printer. Quality only matters for the
+     * SELPHY: the Ivy 2's 640x1616 raster is already covered by the camera's
+     * preview image.
+     */
+    private int[] options() {
+        if (settings.printerType == PrinterType.SELPHY)
+            return new int[] { OPTION_PRINTER, OPTION_LAYOUT, OPTION_ROTATE, OPTION_QUALITY, OPTION_COPIES };
+        return new int[] { OPTION_PRINTER, OPTION_LAYOUT, OPTION_ROTATE, OPTION_COPIES };
+    }
+
+    private String optionLine(int option) {
+        switch (option) {
+            case OPTION_PRINTER:
+                return "Printer: " + settings.printerType.label;
+            case OPTION_LAYOUT:
+                return "Layout: " + (settings.mode == PrintLayout.Mode.FILL ? "Fill (borderless)" : "Fit (white border)");
+            case OPTION_ROTATE:
+                return "Rotate to fit: " + (settings.autoRotate ? "On" : "Off");
+            case OPTION_QUALITY:
+                return "Quality: " + (settings.highQuality ? "High (full resolution)" : "Standard (preview image)");
+            case OPTION_COPIES:
+            default:
+                return "Copies: " + copies;
+        }
+    }
+
     private void updateOptions() {
-        String[] lines = {
-                "Printer: " + settings.printerType.label,
-                "Layout: " + (settings.mode == PrintLayout.Mode.FILL ? "Fill (borderless)" : "Fit (white border)"),
-                "Rotate to fit: " + (settings.autoRotate ? "On" : "Off"),
-                "Copies: " + copies,
-        };
+        int[] options = options();
+        selectedOption = Math.min(selectedOption, options.length - 1);
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.length; i++)
-            sb.append(i == selectedOption ? "▶ " : "    ").append(lines[i]).append('\n');
+        for (int i = 0; i < options.length; i++)
+            sb.append(i == selectedOption ? "\u25B6 " : "    ").append(optionLine(options[i])).append('\n');
         optionsView.setText(sb.toString());
     }
 
     private void changeOption(int direction) {
-        switch (selectedOption) {
+        switch (options()[selectedOption]) {
             case OPTION_PRINTER:
                 settings.printerType = settings.printerType.next();
                 break;
@@ -169,6 +197,9 @@ public class PrintActivity extends BaseActivity {
                 break;
             case OPTION_ROTATE:
                 settings.autoRotate = !settings.autoRotate;
+                break;
+            case OPTION_QUALITY:
+                settings.highQuality = !settings.highQuality;
                 break;
             case OPTION_COPIES:
                 copies = Math.max(1, Math.min(MAX_COPIES, copies + direction));
@@ -219,6 +250,7 @@ public class PrintActivity extends BaseActivity {
         final PrintLayout.Mode mode = settings.mode;
         final boolean autoRotate = settings.autoRotate;
         final PaperFormat paper = settings.printerType.paper;
+        final boolean fullResolution = settings.printerType == PrinterType.SELPHY && settings.highQuality;
         final int copyCount = copies;
         final PrintBackend backend = PrintBackend.create(this, settings);
         activeBackend = backend;
@@ -227,8 +259,13 @@ public class PrintActivity extends BaseActivity {
             public void run() {
                 String result;
                 try {
-                    postStatus("Preparing image...");
-                    byte[] jpeg = PrintRenderer.renderForPrinter(src, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+                    byte[] jpeg = null;
+                    if (fullResolution)
+                        jpeg = renderFullResolution(mode, autoRotate, paper);
+                    if (jpeg == null) {
+                        postStatus("Preparing image...");
+                        jpeg = PrintRenderer.renderForPrinter(src, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+                    }
                     Logger.info("Rendered " + jpeg.length + " byte JPEG for " + paper.name);
                     for (int copy = 1; copy <= copyCount; copy++) {
                         if (copy > 1 && backend.needsPauseBetweenCopies())
@@ -258,6 +295,85 @@ public class PrintActivity extends BaseActivity {
             }
         });
         job.start();
+    }
+
+    /**
+     * Renders from the full-resolution photo. If that fails, asks whether to
+     * print from the preview image instead.
+     *
+     * @return the JPEG, or null to print from the preview image
+     */
+    private byte[] renderFullResolution(PrintLayout.Mode mode, boolean autoRotate, PaperFormat paper) throws IOException {
+        postStatus("Preparing full-resolution image...");
+        String reason;
+        try {
+            long start = System.currentTimeMillis();
+            byte[] jpeg = PrintRenderer.renderForPrinterFromFullImage(new PrintRenderer.StreamSource() {
+                @Override
+                public InputStream open() throws IOException {
+                    InputStream in = imageInfo.getFullImage();
+                    if (in == null)
+                        throw new IOException("no full-size JPEG for this photo (RAW only?)");
+                    return in;
+                }
+            }, exifDegrees, autoRotate, mode, paper, settings.jpegQuality);
+            Logger.info("Full-resolution render took " + (System.currentTimeMillis() - start) + " ms");
+            return jpeg;
+        } catch (OutOfMemoryError e) {
+            System.gc();
+            Logger.error("Full-resolution render ran out of memory (max heap " + (Runtime.getRuntime().maxMemory() >> 20) + " MB)", e);
+            reason = "not enough memory";
+        } catch (IOException e) {
+            if (cancelled)
+                throw e;
+            Logger.error("Full-resolution render failed", e);
+            reason = e.getMessage();
+        } catch (RuntimeException e) {
+            Logger.error("Full-resolution render failed", e);
+            reason = e.toString();
+        }
+        if (!confirm("Full resolution failed (" + reason + ").\nENTER: print from the preview image\nTRASH: cancel"))
+            throw new IOException("Cancelled");
+        return null;
+    }
+
+    /** Blocks the job thread until the user presses ENTER (true) or TRASH (false). */
+    private boolean confirm(final String question) throws IOException {
+        synchronized (confirmLock) {
+            confirmAnswer = null;
+            awaitingConfirm = true;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setStatus(question);
+                hintView.setText(R.string.hint_confirm);
+            }
+        });
+        try {
+            synchronized (confirmLock) {
+                while (confirmAnswer == null && !cancelled)
+                    confirmLock.wait();
+                return confirmAnswer != null && confirmAnswer && !cancelled;
+            }
+        } catch (InterruptedException e) {
+            throw new IOException("Cancelled");
+        } finally {
+            awaitingConfirm = false;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    hintView.setText(R.string.hint_busy);
+                }
+            });
+        }
+    }
+
+    private void answer(boolean yes) {
+        synchronized (confirmLock) {
+            confirmAnswer = yes;
+            confirmLock.notifyAll();
+        }
     }
 
     private void printOnce(PrintBackend backend, byte[] jpeg, PrintLayout.Mode mode, int copy, int copyCount) throws IOException {
@@ -293,6 +409,9 @@ public class PrintActivity extends BaseActivity {
 
     private void cancel() {
         cancelled = true;
+        synchronized (confirmLock) {
+            confirmLock.notifyAll();
+        }
         PrintBackend backend = activeBackend;
         if (backend != null)
             backend.cancel();
@@ -305,7 +424,8 @@ public class PrintActivity extends BaseActivity {
     @Override
     protected boolean onUpKeyDown() {
         if (!isBusy()) {
-            selectedOption = (selectedOption + OPTION_COUNT - 1) % OPTION_COUNT;
+            int count = options().length;
+            selectedOption = (selectedOption + count - 1) % count;
             updateOptions();
         }
         return true;
@@ -314,7 +434,7 @@ public class PrintActivity extends BaseActivity {
     @Override
     protected boolean onDownKeyDown() {
         if (!isBusy()) {
-            selectedOption = (selectedOption + 1) % OPTION_COUNT;
+            selectedOption = (selectedOption + 1) % options().length;
             updateOptions();
         }
         return true;
@@ -343,19 +463,29 @@ public class PrintActivity extends BaseActivity {
 
     @Override
     protected boolean onEnterKeyDown() {
+        if (awaitingConfirm) {
+            answer(true);
+            return true;
+        }
         startPrint();
         return true;
     }
 
     @Override
     protected boolean onShutterKeyDown() {
+        if (awaitingConfirm) {
+            answer(true);
+            return true;
+        }
         startPrint();
         return true;
     }
 
     @Override
     protected boolean onDeleteKeyUp() {
-        if (isBusy())
+        if (awaitingConfirm)
+            answer(false);
+        else if (isBusy())
             cancel();
         else
             onBackPressed();

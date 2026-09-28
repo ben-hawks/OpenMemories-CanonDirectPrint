@@ -94,4 +94,62 @@ public final class PrintLayout {
             sample *= 2;
         return sample;
     }
+
+    /**
+     * One horizontal band of the source image, for rendering a large photo in
+     * pieces so it never has to be decoded in one go.
+     */
+    public static final class Strip {
+        /** Source rows to decode, including a little overlap with the neighbours. */
+        public final int decodeTop, decodeBottom;
+        /** Output pixels this strip is responsible for (left, top, right, bottom; exclusive). */
+        public final int left, top, right, bottom;
+
+        Strip(int decodeTop, int decodeBottom, int left, int top, int right, int bottom) {
+            this.decodeTop = decodeTop;
+            this.decodeBottom = decodeBottom;
+            this.left = left;
+            this.top = top;
+            this.right = right;
+            this.bottom = bottom;
+        }
+
+        @Override
+        public String toString() {
+            return "Strip(rows " + decodeTop + ".." + decodeBottom + " -> " + left + "," + top + "," + right + "," + bottom + ")";
+        }
+    }
+
+    /**
+     * Splits the source into bands of {@code rows} source rows. Each band
+     * owns the output rectangle its core rows map to (rotations are multiples
+     * of 90 degrees, so that is an axis-aligned rectangle). Neighbouring bands
+     * share their boundary exactly, so clipping each band to its rectangle
+     * leaves no gaps or double-drawn seams. Bands that land entirely outside
+     * the output (cropped away in FILL mode) are skipped.
+     *
+     * @param pad extra source rows decoded above and below, so bilinear
+     *            filtering at the band edge has real neighbours to sample
+     */
+    public static java.util.List<Strip> planStrips(int srcWidth, int srcHeight, Affine toOutput,
+                                                   int outWidth, int outHeight, int rows, int pad) {
+        java.util.List<Strip> strips = new java.util.ArrayList<Strip>();
+        for (int y0 = 0; y0 < srcHeight; y0 += rows) {
+            int y1 = Math.min(srcHeight, y0 + rows);
+            double[] a = toOutput.apply(0, y0);
+            double[] b = toOutput.apply(srcWidth, y1);
+            int left = clamp((int) Math.round(Math.min(a[0], b[0])), outWidth);
+            int right = clamp((int) Math.round(Math.max(a[0], b[0])), outWidth);
+            int top = clamp((int) Math.round(Math.min(a[1], b[1])), outHeight);
+            int bottom = clamp((int) Math.round(Math.max(a[1], b[1])), outHeight);
+            if (left >= right || top >= bottom)
+                continue;
+            strips.add(new Strip(Math.max(0, y0 - pad), Math.min(srcHeight, y1 + pad), left, top, right, bottom));
+        }
+        return strips;
+    }
+
+    private static int clamp(int v, int max) {
+        return Math.max(0, Math.min(max, v));
+    }
 }

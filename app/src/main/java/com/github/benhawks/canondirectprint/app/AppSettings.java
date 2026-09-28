@@ -34,6 +34,8 @@ public class AppSettings {
     public PrinterType printerType = PrinterType.IVY2;
     public PrintLayout.Mode mode = PrintLayout.Mode.FILL;
     public boolean autoRotate = true;
+    /** SELPHY: render from the full-resolution photo instead of the camera's preview image. */
+    public boolean highQuality = true;
 
     /** Fixed bridge address, or null to auto-detect. */
     public String bridgeHost = null;
@@ -68,6 +70,7 @@ public class AppSettings {
             // keep default
         }
         s.autoRotate = p.getBoolean("autoRotate", s.autoRotate);
+        s.highQuality = p.getBoolean("highQuality", s.highQuality);
         s.lastBridgeHost = p.getString("lastBridgeHost", null);
         s.lastBridgePort = p.getInt("lastBridgePort", s.lastBridgePort);
         s.lastSelphyHost = p.getString("lastSelphyHost", null);
@@ -90,6 +93,7 @@ public class AppSettings {
                 .putString("printer", printerType.name())
                 .putString("mode", mode.name())
                 .putBoolean("autoRotate", autoRotate)
+                .putBoolean("highQuality", highQuality)
                 .putString("lastBridgeHost", lastBridgeHost)
                 .putInt("lastBridgePort", lastBridgePort)
                 .putString("lastSelphyHost", lastSelphyHost)

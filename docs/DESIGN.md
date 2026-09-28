@@ -165,10 +165,25 @@ Implementation choices:
   native raster with bleed, from the plane header in the notes), landscape,
   upright. The same affine pipeline as the Ivy 2 renders into it. Portrait photos
   are turned sideways when *Rotate to fit* is on. *Fit* sends the printer's
-  bordered flag so none of the photo is lost in the borderless bleed. The
-  camera's ~1616 px screennail is scaled up about 12% for this; decoding the 24 MP
-  original is not worth the memory on the camera. If allocating the 9 MB output
-  bitmap fails, the renderer falls back to 16-bit colour.
+  bordered flag so none of the photo is lost in the borderless bleed. If
+  allocating the 9 MB output bitmap fails, the renderer falls back to 16-bit
+  colour.
+* **Source resolution**: the camera's ~1616×1080 screennail would be scaled up
+  about 12% for the 1808×1232 raster. *Quality: High* (the default for the
+  SELPHY) renders from the full photo instead. Decoding a 24 MP JPEG whole needs
+  96 MB (24 MB even at 1/2), far beyond the camera's heap, so
+  `PrintRenderer.renderForPrinterFromFullImage` uses `BitmapRegionDecoder`
+  (API 10) to decode 256-row bands at the largest power-of-two subsample that
+  still gives printer resolution (1/2 for 6000×4000). It draws each band into the
+  output through the same affine transform. `PrintLayout.planStrips` gives
+  each band the axis-aligned output rectangle its rows map to. Bands are
+  decoded with a few rows of overlap, for bilinear filtering, and clipped to
+  their own rectangle, so neighbours meet exactly with no seams, and bands
+  cropped away in *Fill* mode are skipped. Peak memory is the output bitmap
+  plus one band (about 1.5 MB). Any failure (out of memory, no JPEG for RAW-only
+  shots) asks the user before falling back to the screennail. The Ivy 2 does
+  not offer the option: its 640×1616 raster maps 1:1 onto the screennail's
+  long side.
 * **Copies**: `SelphyPrinter.print` returns only when the printer reports the
   job done, so copies are simply sent one after another.
 * Error details inside the job (for example ribbon exhausted mid-print) are not

@@ -2,15 +2,18 @@ package com.github.benhawks.canondirectprint.image;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.media.ExifInterface;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 /** Turns a photo into the bitmap / JPEG the Ivy 2 expects. */
 public final class PrintRenderer {
@@ -110,6 +113,78 @@ public final class PrintRenderer {
             return jpeg.toByteArray();
         } finally {
             out.recycle();
+        }
+    }
+
+    /** Source rows (before subsampling) decoded per strip. */
+    private static final int STRIP_ROWS = 256;
+
+    /**
+     * Printer-ready JPEG rendered from the full-resolution photo.
+     *
+     * A 24 MP image does not fit in the camera's app memory, so it is decoded
+     * in horizontal strips with BitmapRegionDecoder (subsampled as far as the
+     * printer's resolution allows) and each strip is drawn straight into the
+     * output bitmap. Memory use is the output bitmap plus one strip.
+     *
+     * @throws IOException or OutOfMemoryError if the image cannot be decoded
+     */
+    public static byte[] renderForPrinterFromFullImage(StreamSource source, int exifDegrees, boolean autoRotate,
+                                                       PrintLayout.Mode mode, PaperFormat paper, int jpegQuality) throws IOException {
+        int[] size = decodeBounds(source);
+        int width = size[0], height = size[1];
+        int rotation = PrintLayout.rotation(width, height, exifDegrees, autoRotate, paper);
+        int sample = PrintLayout.sampleSize(width, height, rotation, mode, paper);
+        Affine toOutput = PrintLayout.toPrinter(width, height, rotation, mode, paper);
+        List<PrintLayout.Strip> strips = PrintLayout.planStrips(width, height, toOutput,
+                paper.outputWidth, paper.outputHeight, STRIP_ROWS, 2 * sample);
+
+        BitmapRegionDecoder decoder;
+        InputStream in = source.open();
+        try {
+            decoder = BitmapRegionDecoder.newInstance(in, false);
+        } finally {
+            in.close();
+        }
+        if (decoder == null)
+            throw new IOException("Full image cannot be decoded in parts");
+
+        Bitmap out = null;
+        try {
+            out = Bitmap.createBitmap(paper.outputWidth, paper.outputHeight, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(out);
+            canvas.drawColor(Color.WHITE);
+            Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Matrix matrix = new Matrix();
+            for (PrintLayout.Strip strip : strips) {
+                Bitmap tile = decoder.decodeRegion(new Rect(0, strip.decodeTop, width, strip.decodeBottom), options);
+                if (tile == null)
+                    throw new IOException("Decoding rows " + strip.decodeTop + "-" + strip.decodeBottom + " failed");
+                try {
+                    // Tile pixels -> full-resolution source pixels -> output pixels.
+                    Affine tileToOutput = Affine.scale((double) width / tile.getWidth(),
+                                    (double) (strip.decodeBottom - strip.decodeTop) / tile.getHeight())
+                            .then(Affine.translate(0, strip.decodeTop))
+                            .then(toOutput);
+                    matrix.setValues(tileToOutput.toMatrixValues());
+                    canvas.save();
+                    canvas.clipRect(strip.left, strip.top, strip.right, strip.bottom);
+                    canvas.drawBitmap(tile, matrix, paint);
+                    canvas.restore();
+                } finally {
+                    tile.recycle();
+                }
+            }
+            ByteArrayOutputStream jpeg = new ByteArrayOutputStream(1024 * 1024);
+            out.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpeg);
+            return jpeg.toByteArray();
+        } finally {
+            decoder.recycle();
+            if (out != null)
+                out.recycle();
         }
     }
 }

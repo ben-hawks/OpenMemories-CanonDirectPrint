@@ -108,4 +108,61 @@ public class PrintLayoutTest {
         assertEquals(1, PrintLayout.sampleSize(1616, 1080, 0, PrintLayout.Mode.FILL, SELPHY_POSTCARD));
         assertEquals(2, PrintLayout.sampleSize(6000, 4000, 0, PrintLayout.Mode.FILL, SELPHY_POSTCARD));
     }
+
+    /** Counts how often each output pixel is claimed by a strip. */
+    private static int[] coverage(java.util.List<PrintLayout.Strip> strips, int w, int h) {
+        int[] count = new int[w * h];
+        for (PrintLayout.Strip st : strips)
+            for (int y = st.top; y < st.bottom; y++)
+                for (int x = st.left; x < st.right; x++)
+                    count[y * w + x]++;
+        return count;
+    }
+
+    @Test
+    public void stripsTileFilledOutputExactlyForEveryRotation() {
+        for (int exif : new int[] { 0, 90, 180, 270 }) {
+            for (int[] src : new int[][] { { 6000, 4000 }, { 4000, 6000 }, { 6000, 3376 } }) {
+                int rotation = PrintLayout.rotation(src[0], src[1], exif, true, SELPHY_POSTCARD);
+                Affine t = PrintLayout.toPrinter(src[0], src[1], rotation, PrintLayout.Mode.FILL, SELPHY_POSTCARD);
+                java.util.List<PrintLayout.Strip> strips = PrintLayout.planStrips(src[0], src[1], t, 1808, 1232, 256, 4);
+                int[] count = coverage(strips, 1808, 1232);
+                for (int i = 0; i < count.length; i++)
+                    assertEquals("exif " + exif + " src " + src[0] + "x" + src[1] + " pixel " + i, 1, count[i]);
+            }
+        }
+    }
+
+    @Test
+    public void stripsCoverOnlyThePhotoInFitMode() {
+        // Square photo on the landscape postcard: white bars left and right.
+        Affine t = PrintLayout.toPrinter(4000, 4000, 0, PrintLayout.Mode.FIT, SELPHY_POSTCARD);
+        java.util.List<PrintLayout.Strip> strips = PrintLayout.planStrips(4000, 4000, t, 1808, 1232, 256, 4);
+        int[] count = coverage(strips, 1808, 1232);
+        int covered = 0;
+        for (int c : count) {
+            assertTrue(c <= 1);
+            covered += c;
+        }
+        assertEquals(1232 * 1232, covered, 1232 * 2);
+    }
+
+    @Test
+    public void stripsSkipCroppedRowsAndPadDecodes() {
+        // A very wide panorama filling the sheet: the source is cropped left/right, not top/bottom,
+        // so every row band is used; decode ranges are padded but stay inside the source.
+        Affine t = PrintLayout.toPrinter(8000, 2000, 0, PrintLayout.Mode.FILL, SELPHY_POSTCARD);
+        java.util.List<PrintLayout.Strip> strips = PrintLayout.planStrips(8000, 2000, t, 1808, 1232, 500, 4);
+        assertEquals(4, strips.size());
+        assertEquals(0, strips.get(0).decodeTop);
+        assertEquals(504, strips.get(0).decodeBottom);
+        assertEquals(496, strips.get(1).decodeTop);
+        assertEquals(2000, strips.get(3).decodeBottom);
+
+        // A tall photo filling the landscape sheet without rotation: top and bottom rows are cropped away.
+        t = PrintLayout.toPrinter(2000, 8000, 0, PrintLayout.Mode.FILL, SELPHY_POSTCARD);
+        strips = PrintLayout.planStrips(2000, 8000, t, 1808, 1232, 500, 4);
+        assertTrue(strips.size() < 16);
+        assertTrue(strips.get(0).decodeTop > 0);
+    }
 }

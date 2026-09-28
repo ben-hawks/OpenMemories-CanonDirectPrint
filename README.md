@@ -100,9 +100,18 @@ its own format.
 
 Options: **Printer** Ivy 2 or SELPHY; **Layout** *Fill* (borderless, crops to
 the sheet) or *Fit* (white borders); **Rotate to fit** turns photos sideways so
-they use the whole sheet; **Copies** (Ivy 2: sent a minute apart, since the
-printer gives no "done" signal; SELPHY: each copy is sent once the previous one
-has printed).
+they use the whole sheet; **Quality** (SELPHY only) *High* renders from the
+full-resolution photo, *Standard* from the ~1616×1080 preview the camera stores
+in every JPEG; **Copies** (Ivy 2: sent a minute apart, since the printer gives no
+"done" signal; SELPHY: each copy is sent once the previous one has printed).
+
+*High* is the default. The postcard's native raster is 1808×1232, so the preview
+image has to be scaled up about 12% (about 270 dpi instead of 300). The full
+photo is decoded in strips to fit in the camera's memory, which takes a few
+seconds longer. If that fails (for example for a RAW-only photo), the camera
+says why and asks whether to print from the preview instead (ENTER) or cancel
+(TRASH). The Ivy 2 has no Quality option: its 640×1616 raster is already
+covered by the preview image.
 
 The Ivy 2 refuses to print when its battery level is below 30 (of 63), the
 paper cover is open, it is out of paper or the wrong Smart Sheet is loaded. The
